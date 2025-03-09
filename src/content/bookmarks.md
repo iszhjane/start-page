@@ -30,7 +30,7 @@ links:
     src: telegram.svg
     alt: telegram-icon
   - href: https://vimeo.com/watch
-    title: Telegram
+    title: Viemo
     src: viemo.svg
     alt: viemo-icon
   - href: https://elk.zone/m.cmx.im/public/local
@@ -55,8 +55,8 @@ links:
     alt: notion-icon
   - href: https://appinn.com/
     title: Appinn
-    src: Appinn.svg
-    alt: Appinn-icon
+    src: appinn.svg
+    alt: appinn-icon
   - href: https://www.deepl.com/en/translator
     title: DeepL
     src: deepl.svg
