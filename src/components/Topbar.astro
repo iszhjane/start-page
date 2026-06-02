@@ -1,0 +1,283 @@
+---
+// 顶栏：分类 tabs（包在矩形内）+ 管理按钮（独立在矩形外）
+// 矩形宽度 = tabs 自然宽度，未来加 tab 矩形自动变宽
+---
+
+<div id="topbar">
+  <div id="tabs-rect" data-squircle data-squircle-radius="16">
+    <nav id="tabs" class="tabs" role="tablist" aria-label="分类"></nav>
+  </div>
+  <button id="manage-btn" type="button" class="icon-btn" aria-label="管理书签" title="管理书签">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+  </button>
+</div>
+
+<style is:global>
+  #topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  #tabs-rect {
+    display: inline-flex;
+    background: var(--surface-translucent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 6px 8px;
+    min-width: 0;
+  }
+
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tab {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+      background var(--transition),
+      color var(--transition),
+      border-color var(--transition),
+      transform var(--transition);
+    white-space: nowrap;
+  }
+
+  .tab:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+
+  .tab.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .tab .count {
+    margin-left: 6px;
+    opacity: 0.7;
+    font-size: 12px;
+  }
+
+  .icon-btn {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface-translucent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: var(--text);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition:
+      background var(--transition),
+      transform var(--transition);
+  }
+
+  .icon-btn:hover {
+    background: var(--hover);
+    transform: scale(1.05);
+  }
+
+  .icon-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  @media (max-width: 600px) {
+    .tab {
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+    #tabs-rect {
+      max-width: calc(100vw - 60px);
+      overflow: hidden;
+    }
+    .tabs {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .tabs::-webkit-scrollbar {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  import { getState, subscribe, reorderCategory, type Store } from "../lib/store";
+  import { escapeHtml } from "../lib/helpers";
+
+  const tabsEl = document.getElementById("tabs")!;
+  const manageBtn = document.getElementById("manage-btn")!;
+  let activeCategory: string = "all";
+
+  manageBtn.addEventListener("click", () => {
+    window.dispatchEvent(new CustomEvent("manage:open"));
+  });
+
+  window.addEventListener("manage:close", () => {
+    manageBtn.blur();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    // 终端栏输入框 / 设置面板打开时，不抢快捷键
+    const inField =
+      e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+    if (e.key === "/" && !inField) {
+      e.preventDefault();
+      const input = document.getElementById("terminal-input") as HTMLInputElement | null;
+      input?.focus();
+      return;
+    }
+    if (e.key === "Tab" && !inField) {
+      e.preventDefault();
+      const direction = e.shiftKey ? -1 : 1;
+      window.dispatchEvent(new CustomEvent("shortcut:tab", { detail: { direction } }));
+    }
+  });
+
+  subscribe(() => renderTabs(getState()));
+  renderTabs(getState());
+
+  let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+  let longPressActive = false;
+  let dragSourceIdx = -1;
+
+  function removeDropIndicators(): void {
+    tabsEl.querySelectorAll<HTMLButtonElement>(".tab").forEach((b) => {
+      b.style.borderBottom = "";
+    });
+  }
+
+  function renderTabs(state: Store): void {
+    const { categories, bookmarks } = state;
+    const sortedCats = [...categories].sort((a, b) => a.order - b.order);
+    const total = bookmarks.length;
+
+    const tabs: { id: string; label: string; count: number }[] = [
+      { id: "all", label: "全部", count: total },
+      ...sortedCats.map((c) => ({
+        id: c.id,
+        label: c.name,
+        count: bookmarks.filter((b) => b.categoryId === c.id).length,
+      })),
+    ];
+
+    tabsEl.innerHTML = tabs
+      .map(
+        (t) => `
+        <button type="button" role="tab" aria-selected="${t.id === activeCategory}" class="tab ${t.id === activeCategory ? "active" : ""}" data-cat="${t.id}" data-squircle data-squircle-radius="999">
+          ${escapeHtml(t.label)}<span class="count">${t.count}</span>
+        </button>
+      `,
+      )
+      .join("");
+
+    tabsEl.querySelectorAll<HTMLButtonElement>(".tab").forEach((btn) => {
+      btn.draggable = false;
+
+      // 250ms 长按激活拖拽
+      btn.addEventListener("mousedown", () => {
+        longPressTimer = setTimeout(() => {
+          longPressActive = true;
+          btn.draggable = true;
+        }, 250);
+      });
+
+      btn.addEventListener("mouseup", () => {
+        if (longPressTimer) clearTimeout(longPressTimer);
+        longPressTimer = null;
+        btn.draggable = false;
+        setTimeout(() => { longPressActive = false; }, 10);
+      });
+
+      btn.addEventListener("mouseleave", () => {
+        if (longPressTimer) clearTimeout(longPressTimer);
+        longPressTimer = null;
+        btn.draggable = false;
+      });
+
+      btn.addEventListener("dragstart", (e) => {
+        if (!longPressActive) {
+          e.preventDefault();
+          return;
+        }
+        dragSourceIdx = Array.from(tabsEl.querySelectorAll(".tab")).indexOf(btn);
+        e.dataTransfer?.setData("text/plain", String(dragSourceIdx));
+        btn.style.opacity = "0.5";
+      });
+
+      btn.addEventListener("dragend", () => {
+        btn.style.opacity = "1";
+        longPressActive = false;
+        dragSourceIdx = -1;
+        removeDropIndicators();
+      });
+
+      btn.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        removeDropIndicators();
+        const idx = Array.from(tabsEl.querySelectorAll(".tab")).indexOf(btn);
+        if (idx !== dragSourceIdx) {
+          btn.style.borderBottom = "2px solid var(--accent)";
+        }
+      });
+
+      btn.addEventListener("dragleave", () => {
+        btn.style.borderBottom = "";
+      });
+
+      btn.addEventListener("drop", (e) => {
+        e.preventDefault();
+        removeDropIndicators();
+        const fromIdx = dragSourceIdx;
+        const toIdx = Array.from(tabsEl.querySelectorAll(".tab")).indexOf(btn);
+        // 跳过「全部」(index 0)，只重排分类
+        const catFrom = fromIdx - 1;
+        const catTo = toIdx - 1;
+        if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx && catFrom >= 0 && catTo >= 0) {
+          reorderCategory(catFrom, catTo);
+        }
+        longPressActive = false;
+      });
+
+      btn.addEventListener("click", (e) => {
+        if (longPressActive) {
+          e.preventDefault();
+          e.stopPropagation();
+          longPressActive = false;
+          return;
+        }
+        activeCategory = btn.dataset.cat || "all";
+        renderTabs(getState());
+        window.dispatchEvent(new CustomEvent("tabs:change", { detail: activeCategory }));
+      });
+    });
+
+    window.dispatchEvent(new CustomEvent("tabs:change", { detail: activeCategory }));
+  }
+
+
+</script>

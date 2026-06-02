@@ -1,0 +1,391 @@
+---
+export interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Code+Pro:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title}</title>
+    <script is:inline>
+      (() => {
+        try {
+          const raw = localStorage.getItem("startpage:store:v6");
+          if (raw) {
+            const data = JSON.parse(raw);
+            if (data && (data.themeMode === "dark" || data.themeMode === "light")) {
+              document.documentElement.dataset.mode = data.themeMode;
+            } else {
+              const prefersDark = window.matchMedia(
+                "(prefers-color-scheme: dark)",
+              ).matches;
+              document.documentElement.dataset.mode = prefersDark ? "dark" : "light";
+            }
+            const validStyles = ["default", "pixel"];
+            document.documentElement.dataset.style =
+              data && validStyles.includes(data.themeStyle)
+                ? data.themeStyle
+                : "default";
+          } else {
+            const prefersDark = window.matchMedia(
+              "(prefers-color-scheme: dark)",
+            ).matches;
+            document.documentElement.dataset.mode = prefersDark ? "dark" : "light";
+            document.documentElement.dataset.style = "default";
+          }
+        } catch {
+          document.documentElement.dataset.mode = "light";
+          document.documentElement.dataset.style = "default";
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <slot />
+
+    <div id="sync-indicator" class="sync-global-indicator" hidden role="status" aria-live="polite"></div>
+
+    <script>
+      import { applySquircle } from "../lib/squircle";
+      import { applyStyle } from "../lib/themes";
+      import { isConfigured } from "../lib/supabase";
+      import { onSyncStatus } from "../lib/sync";
+      const currentStyle = document.documentElement.dataset.style;
+      if (currentStyle === "pixel") {
+        applyStyle("pixel");
+      }
+      const run = () => applySquircle();
+      document.addEventListener("DOMContentLoaded", run);
+      const mo = new MutationObserver(() => requestAnimationFrame(run));
+      mo.observe(document.body, { childList: true, subtree: true });
+      mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-style"] });
+
+      if (isConfigured()) {
+        const el = document.getElementById("sync-indicator")!;
+        el.hidden = false;
+        onSyncStatus((status) => {
+          const icons: Record<string, string> = {
+            idle: "\u25D0",
+            syncing: "\u21BB",
+            synced: "\u2713",
+            error: "\u2717",
+            offline: "\u26A0",
+          };
+          el.textContent = icons[status] ?? "\u25D0";
+          el.className = "sync-global-indicator " + status;
+        });
+      }
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  @import "tailwindcss";
+
+  :root {
+    --accent: #3584e4;
+    --font: "Inter", system-ui, -apple-system, sans-serif;
+    --mono: "Source Code Pro", ui-monospace, "SF Mono", Menlo, monospace;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --transition: 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  @supports (color: AccentColor) {
+    :root {
+      --accent: AccentColor;
+    }
+  }
+
+  :root[data-mode="light"] {
+    --bg: #e9ecef;
+    --bg-gradient:
+      radial-gradient(
+        ellipse 80% 60% at 50% 0%,
+        color-mix(in srgb, var(--accent) 18%, transparent),
+        transparent 70%
+      ),
+      linear-gradient(180deg, #f8f9fa 0%, #dee2e6 100%);
+    --surface: #ffffff;
+    --surface-translucent: rgba(255, 255, 255, 0.55);
+    --text: #1a1a1a;
+    --muted: #475569;
+    --border: rgba(0, 0, 0, 0.1);
+    --hover: rgba(0, 0, 0, 0.06);
+    --shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    --icon-filter: none;
+  }
+
+  :root[data-mode="dark"] {
+    --bg: #0f1419;
+    --bg-gradient:
+      radial-gradient(
+        ellipse 80% 60% at 50% 0%,
+        color-mix(in srgb, var(--accent) 28%, transparent),
+        transparent 70%
+      ),
+      linear-gradient(180deg, #0f1419 0%, #1a1f2e 100%);
+    --surface: #1e2530;
+    --surface-translucent: rgba(255, 255, 255, 0.05);
+    --text: #e6e8eb;
+    --muted: #94a3b8;
+    --border: rgba(255, 255, 255, 0.1);
+    --hover: rgba(255, 255, 255, 0.08);
+    --shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    --icon-filter: invert(1);
+  }
+
+  /* ====================== Theme: pixel ======================
+   * 字体：Z工坊像素黑体 12px（保留不换）
+   * 设计：8bit 风格 —— 直角 + 4×4 像素硬阴影 + image-rendering: pixelated
+   * 模式：黑底白字（不分 light/dark） */
+  :root[data-style="pixel"] {
+    --accent: #22dd77;
+    --font: "ZLabPixel", "Inter", system-ui, sans-serif;
+    --mono: "ZLabPixel", ui-monospace, monospace;
+    --radius: 0px;
+    --radius-lg: 0px;
+    --bg: #0a0a0a;
+    --bg-gradient: linear-gradient(180deg, #0a0a0a 0%, #141414 100%);
+    --surface: #1a1a1a;
+    --surface-translucent: rgba(26, 26, 26, 0.85);
+    --text: #ffffff;
+    --muted: #a3a3a3;
+    --border: #ffffff;
+    --hover: #2a2a2a;
+    --shadow: 4px 4px 0 0 #22dd77;
+    --icon-filter: none;
+  }
+
+  :root[data-style="pixel"] .theme-card-preview,
+  :root[data-style="pixel"] section,
+  :root[data-style="pixel"] #tabs-rect,
+  :root[data-style="pixel"] .bookmark-list,
+  :root[data-style="pixel"] .pager,
+  :root[data-style="pixel"] .toast {
+    image-rendering: pixelated;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :root[data-style="pixel"] .modal-backdrop,
+  :root[data-style="pixel"] .bm-popover-backdrop {
+    backdrop-filter: blur(2px) !important;
+    -webkit-backdrop-filter: blur(2px) !important;
+  }
+
+  :root[data-style="pixel"] .toast {
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+  }
+
+  :root[data-style="pixel"] #bm-popover,
+  :root[data-style="pixel"] #bm-confirm {
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
+
+  /* 允许点击穿透 squircle SVG 叠加层（default 主题下避免遮罩拦截交互） */
+  [data-squircle] > svg {
+    pointer-events: none;
+  }
+
+  /* pixel 主题：覆写 Lisse squircle，强制直角 */
+  :root[data-style="pixel"] [data-squircle] {
+    clip-path: none !important;
+  }
+
+  :root[data-style="pixel"] [data-squircle] > svg {
+    display: none !important;
+  }
+
+  /* pixel 主题下所有容器/按钮/卡片强制直边 + 4×4 像素硬阴影（8bit 风格） */
+  :root[data-style="pixel"] .bookmark-list,
+  :root[data-style="pixel"] #tabs-rect,
+  :root[data-style="pixel"] .icon-btn,
+  :root[data-style="pixel"] .panel-header .icon-btn,
+  :root[data-style="pixel"] .tab,
+  :root[data-style="pixel"] .theme-card,
+  :root[data-style="pixel"] .subtab,
+  :root[data-style="pixel"] .bm-grid-item,
+  :root[data-style="pixel"] .bm-form,
+  :root[data-style="pixel"] .bm-move-form,
+  :root[data-style="pixel"] .shortcut-table,
+  :root[data-style="pixel"] .theme-mode-group,
+  :root[data-style="pixel"] .btn,
+  :root[data-style="pixel"] .shortcut-key,
+  :root[data-style="pixel"] .pager-dot,
+  :root[data-style="pixel"] .cat-row,
+  :root[data-style="pixel"] .cat-form,
+  :root[data-style="pixel"] .panel,
+  :root[data-style="pixel"] .panel-body,
+  :root[data-style="pixel"] .bm-popover-panel,
+  :root[data-style="pixel"] .bm-popover-backdrop,
+  :root[data-style="pixel"] .bm-sort-menu,
+  :root[data-style="pixel"] .bm-sort-item,
+  :root[data-style="pixel"] .bm-act-btn,
+  :root[data-style="pixel"] .shortcut-row,
+  :root[data-style="pixel"] section,
+  :root[data-style="pixel"] .pager,
+  :root[data-style="pixel"] .toast,
+  :root[data-style="pixel"] .theme-card-preview,
+  :root[data-style="pixel"] #bm-popover,
+  :root[data-style="pixel"] #bm-confirm,
+  :root[data-style="pixel"] .modal-backdrop {
+    border-radius: 0 !important;
+    box-shadow: 4px 4px 0 0 #000 !important;
+  }
+
+  /* pixel 主题下书签栏去掉白边 */
+  :root[data-style="pixel"] .bookmark-list {
+    border: none !important;
+  }
+
+  /* pixel 主题下去掉 #tabs-rect / 命令行 section 的白边，焦点改用绿色阴影表达 */
+  :root[data-style="pixel"] #tabs-rect,
+  :root[data-style="pixel"] section {
+    border: none !important;
+  }
+  :root[data-style="pixel"] section:focus-within {
+    border-color: transparent !important;
+    box-shadow: 4px 4px 0 0 var(--accent) !important;
+  }
+
+  /* pixel 主题下隐藏浅/深模式切换（黑底白字单一模式） */
+  :root[data-style="pixel"] .theme-mode {
+    display: none !important;
+  }
+
+  /* pixel 主题：高亮（accent 背景）元素文字用黑色，确保可读性 */
+  :root[data-style="pixel"] .tab.active,
+  :root[data-style="pixel"] .subtab.active,
+  :root[data-style="pixel"] .btn.primary,
+  :root[data-style="pixel"] .theme-mode-group button.active,
+  :root[data-style="pixel"] .theme-card.active,
+  :root[data-style="pixel"] .theme-card.active::after {
+    color: #000 !important;
+  }
+
+  /* pixel 主题：只对输入框保留 focus 绿色阴影，按钮/卡片等不需要 */
+  :root[data-style="pixel"] input:not([type="checkbox"]):focus-visible,
+  :root[data-style="pixel"] select:focus-visible,
+  :root[data-style="pixel"] textarea:focus-visible {
+    outline: none !important;
+    box-shadow: 4px 4px 0 0 var(--accent) !important;
+  }
+  :root[data-style="pixel"] *:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+  :root[data-style="pixel"] *:focus {
+    outline: none !important;
+  }
+  /* pixel 主题：搜索栏输入框自身不显示绿色阴影（由外层 section:focus-within 托底） */
+  :root[data-style="pixel"] #terminal-input:focus-visible {
+    box-shadow: none !important;
+  }
+
+  /* ====================== Reset & globals ====================== */
+  *,
+  *::before,
+  *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: var(--font);
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: var(--bg);
+    background-image: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    transition:
+      background-color var(--transition),
+      color var(--transition);
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: white;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+
+  @media (max-width: 1200px) {
+    body {
+      align-items: flex-start;
+      padding-top: 4.5rem;
+    }
+  }
+
+  /* ====================== 同步状态指示器 ====================== */
+  .sync-global-indicator {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    z-index: 999;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    background: var(--surface-translucent);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    cursor: default;
+    transition: all var(--transition);
+    color: var(--muted);
+  }
+  .sync-global-indicator.synced {
+    color: #22c55e;
+    border-color: color-mix(in srgb, #22c55e 40%, transparent);
+  }
+  .sync-global-indicator.error,
+  .sync-global-indicator.offline {
+    color: #ef4444;
+    border-color: color-mix(in srgb, #ef4444 40%, transparent);
+  }
+  .sync-global-indicator.syncing {
+    animation: sync-spin 1s linear infinite;
+  }
+  @keyframes sync-spin {
+    to { transform: rotate(360deg); }
+  }
+</style>

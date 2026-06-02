@@ -1,0 +1,760 @@
+---
+const username = "zzh.editor";
+---
+
+<section data-squircle data-squircle-radius="10">
+  <div id="prompt">
+    <span id="prompt-engine" role="button" tabindex="0" aria-haspopup="listbox">Google</span><span class="prompt-colon">:</span>
+  </div>
+  <input id="terminal-input" type="text" autocomplete="off" spellcheck="false" placeholder="" />
+</section>
+<div id="engine-menu" class="engine-menu" role="listbox" hidden></div>
+<div id="wf-suggest" class="wf-suggest" role="listbox" hidden></div>
+
+<style>
+  section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    background: var(--surface-translucent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    width: 100%;
+    transition:
+      border-color var(--transition),
+      box-shadow var(--transition);
+  }
+
+  section:focus-within {
+    border-color: var(--accent);
+    box-shadow:
+      var(--shadow),
+      0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+
+  #prompt {
+    font-family: var(--mono);
+    font-size: 18px;
+    color: var(--muted);
+    white-space: nowrap;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-shrink: 0;
+  }
+
+  #prompt-engine {
+    cursor: pointer;
+    user-select: none;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all var(--transition);
+  }
+
+  #prompt-engine:hover {
+    color: var(--text);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .engine-menu {
+    position: fixed;
+    min-width: 160px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
+  }
+
+  .engine-menu[hidden] {
+    display: none;
+  }
+
+  .engine-item {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 6px 14px;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--transition);
+  }
+
+  .engine-item:hover {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    transform: translateX(2px);
+  }
+
+  .engine-item.active {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .wf-suggest {
+    position: fixed;
+    min-width: 220px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    z-index: 99;
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
+  }
+
+  .wf-suggest[hidden] {
+    display: none;
+  }
+
+  .wf-suggest-item {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 6px 14px;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .wf-suggest-item:hover {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    transform: translateX(2px);
+  }
+
+  .wf-suggest-item.active {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .wf-suggest-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .wf-suggest-count {
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .wf-suggest-hint {
+    padding: 8px 14px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  #browser-info {
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  #terminal-input {
+    background: none;
+    border: none;
+    font-family: var(--mono);
+    font-size: 18px;
+    color: var(--text);
+    flex: 1;
+    min-width: 0;
+  }
+
+  #terminal-input:focus {
+    outline: none;
+  }
+
+  #terminal-input::placeholder {
+    color: var(--muted);
+  }
+
+  @media (max-width: 1040px) {
+    section {
+      position: fixed;
+      left: 0.75rem;
+      right: 0.75rem;
+      bottom: max(0.75rem, env(safe-area-inset-bottom));
+      width: auto;
+      max-width: none;
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      z-index: 50;
+    }
+    #prompt,
+    #terminal-input {
+      font-size: 15px;
+    }
+    #terminal-input {
+      width: 100%;
+    }
+  }
+
+  :global(.bookmark-match) {
+    opacity: 1 !important;
+    transition: all 0.2s ease !important;
+  }
+
+  :global(.bookmark-nomatch) {
+    opacity: 0.35 !important;
+    filter: grayscale(70%) !important;
+    transform: scale(0.98) !important;
+    transition: all 0.3s ease !important;
+  }
+
+  :global(.bookmark-nomatch-parent) {
+    text-decoration: line-through !important;
+    text-decoration-color: var(--muted) !important;
+  }
+
+  :global(.bookmark-list a:hover) {
+    background: var(--hover) !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: translateX(2px) !important;
+  }
+</style>
+
+<script>
+  import { addBookmark, addCategory, getState, subscribe, SEARCH_ENGINES, getSearchUrl, normalizeUrl, setSearchEngine } from "../lib/store";
+  import { showToast, openUrls } from "../lib/helpers";
+
+  const PREFIX_RE = /^(?:r:|m:)/;
+
+  let _typingTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const PLACEHOLDER_EXAMPLES = [
+    "输入 add <网址> <名称> <分组> 快速添加书签",
+    "按 / 聚焦输入框，Tab 切换分组",
+    "长按书签可编辑或删除",
+    "点击右上角齿轮打开设置面板",
+    "输入关键词匹配书签，回车直接打开",
+    "Esc 清空 / ↑↓ 浏览历史",
+    "wf+名称 或 workflow+名称 批量打开工作流",
+    "请输入关键词或直接访问网址",
+  ];
+
+  function stopTyping(input: HTMLInputElement): void {
+    if (_typingTimer) {
+      clearTimeout(_typingTimer);
+      _typingTimer = null;
+    }
+    input.placeholder = "";
+  }
+
+  function typePlaceholder(input: HTMLInputElement, examples: string[], speed = 50) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      input.placeholder = examples[0];
+      return;
+    }
+    let exampleIndex = 0;
+    let charIndex = 0;
+    function step() {
+      const current = examples[exampleIndex];
+      if (charIndex < current.length) {
+        input.placeholder += current.charAt(charIndex);
+        charIndex++;
+        _typingTimer = setTimeout(step, speed);
+      } else {
+        _typingTimer = setTimeout(() => {
+          input.placeholder = "";
+          charIndex = 0;
+          exampleIndex = (exampleIndex + 1) % examples.length;
+          step();
+        }, 2000);
+      }
+    }
+    _typingTimer = setTimeout(step, speed);
+  }
+
+  function updateSearchEnginePrompt(): void {
+    const state = (window as any).__startpageStore?.();
+    if (!state) return;
+    const el = document.getElementById("prompt-engine");
+    if (!el) return;
+    if (state.searchEngine === "custom" && state.customSearchEngine?.name) {
+      el.textContent = state.customSearchEngine.name;
+    } else {
+      const map: Record<string, string> = { google: "Google", bing: "Bing", duckduckgo: "DuckDuckGo", brave: "Brave" };
+      el.textContent = map[state.searchEngine] ?? "Google";
+    }
+  }
+
+  function detectBrowser(): string {
+    const ua = navigator.userAgent;
+    if (ua.includes("Firefox")) return "firefox";
+    if (ua.includes("Edg/")) return "edge";
+    if (ua.includes("Chrome")) return "chrome";
+    if (ua.includes("Safari")) return "safari";
+    return "web";
+  }
+
+  function resetStyles(elements: NodeListOf<HTMLAnchorElement>) {
+    elements.forEach((el) => {
+      el.classList.remove("bookmark-match", "bookmark-nomatch");
+      el.parentElement?.classList.remove("bookmark-match", "bookmark-nomatch", "bookmark-nomatch-parent");
+    });
+  }
+
+  function stripPrefix(value: string): string {
+    return value.replace(PREFIX_RE, "");
+  }
+
+  function highlightMatches(value: string, elements: NodeListOf<HTMLAnchorElement>) {
+    if (value === "") {
+      resetStyles(elements);
+      return;
+    }
+    const needle = stripPrefix(value);
+    elements.forEach((el) => {
+      const li = el.parentElement!;
+      const isMatch = el.textContent!.toLowerCase().includes(needle);
+      li.classList.toggle("bookmark-match", isMatch);
+      li.classList.toggle("bookmark-nomatch", !isMatch);
+      li.classList.toggle("bookmark-nomatch-parent", !isMatch);
+    });
+  }
+
+  function getEngineUrl(query: string): string {
+    const st = getState();
+    return getSearchUrl(st.searchEngine, query, st.customSearchEngine);
+  }
+
+  function navigate(value: string) {
+    if (value.startsWith("r:")) {
+      const q = value.slice(2).trim();
+      window.location.href = getEngineUrl(`site:reddit.com ${q}`);
+      return;
+    }
+    if (value.startsWith("m:")) {
+      const q = value.slice(2).trim();
+      window.location.href = getEngineUrl(`site:myanimelist.net ${q}`);
+      return;
+    }
+    if (/^(javascript|data|vbscript):/i.test(value)) return;
+    if (/^[\w-]+(\.[a-z]{2,})+(\/.*)?$/i.test(value)) {
+      window.location.href = `https://${value}`;
+      return;
+    }
+    window.location.href = getEngineUrl(value);
+  }
+
+  function runCategory(name: string): boolean {
+    const needle = name.trim().toLowerCase();
+    if (!needle) return false;
+
+    // 动态读取 store（避免和 store 加载竞态）
+    const state = (window as any).__startpageStore?.();
+    if (!state) {
+      showToast("数据未就绪", "error");
+      return true;
+    }
+
+    const matches = state.categories.filter((c: any) =>
+      c.name.toLowerCase().includes(needle),
+    );
+
+    if (matches.length === 0) {
+      showToast(`未找到分类「${name}」`, "error");
+      return true;
+    }
+
+    // 多个匹配时取第一个，并提示
+    const cat = matches[0];
+    if (matches.length > 1) {
+      showToast(
+        `匹配到 ${matches.length} 个分类，已打开：${matches.map((m: any) => m.name).join("、")}`,
+        "info",
+      );
+    }
+
+    const bms = state.bookmarks
+      .filter((b: any) => b.categoryId === cat.id)
+      .sort((a: any, b: any) => a.title.localeCompare(b.title));
+
+    if (bms.length === 0) {
+      showToast(`分类「${cat.name}」下还没有书签`, "error");
+      return true;
+    }
+
+    openUrls(bms.map((b: any) => b.href));
+    showToast(`已打开 ${bms.length} 个标签页（${cat.name}）`, "info");
+    return true;
+  }
+
+  function findBookmarkMatch(value: string, elements: NodeListOf<HTMLAnchorElement>): HTMLAnchorElement | null {
+    const needle = stripPrefix(value);
+    if (!needle) return null;
+    for (const el of elements) {
+      if (el.textContent!.toLowerCase().includes(needle)) return el;
+    }
+    return null;
+  }
+
+  function refreshElements(): NodeListOf<HTMLAnchorElement> {
+    return document.querySelectorAll<HTMLAnchorElement>(".bookmark-list a");
+  }
+
+  function initializeTerminal() {
+    const input = document.getElementById("terminal-input") as HTMLInputElement | null;
+    if (!input) return;
+
+    let elements: NodeListOf<HTMLAnchorElement> = refreshElements();
+    const history: string[] = [];
+    let historyIndex = 0;
+
+    updateSearchEnginePrompt();
+    typePlaceholder(input, PLACEHOLDER_EXAMPLES);
+    resetStyles(elements);
+
+    // 监听书签容器变化（tab 切换、store 变化）后重新查询
+    const host = document.getElementById("bookmark-host");
+    if (host) {
+      const observer = new MutationObserver(() => {
+        const previousValue = input.value;
+        elements = refreshElements();
+        if (previousValue) highlightMatches(previousValue.toLowerCase(), elements);
+      });
+      observer.observe(host, { childList: true, subtree: true });
+    }
+
+    input.addEventListener("focus", () => {
+      stopTyping(input);
+    });
+
+    input.addEventListener("blur", () => {
+      if (input.value === "") {
+        resetStyles(elements);
+        if (!_typingTimer) typePlaceholder(input, PLACEHOLDER_EXAMPLES);
+      }
+    });
+
+    input.addEventListener("input", () => {
+      highlightMatches(input.value.toLowerCase(), elements);
+      const v = input.value;
+      const wfPrefix = v.match(/^(wf|workflow)\s*(.*)$/i);
+      if (wfPrefix) {
+        renderWfSuggestions(wfPrefix[2]);
+      } else {
+        const suggest = document.getElementById("wf-suggest")!;
+        if (!suggest.hidden) suggest.hidden = true;
+      }
+    });
+
+    input.addEventListener("keydown", (event) => {
+      const suggest = document.getElementById("wf-suggest")!;
+
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        if (!suggest.hidden) {
+          suggest.hidden = true;
+        }
+        if (input.value !== "") {
+          input.value = "";
+          resetStyles(elements);
+        }
+        event.preventDefault();
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        if (!suggest.hidden && wfFiltered.length > 0) {
+          event.preventDefault();
+          updateWfSuggestionHighlight((wfSuggestionIndex - 1 + wfFiltered.length) % wfFiltered.length);
+          return;
+        }
+        if (historyIndex > 0) {
+          historyIndex--;
+          input.value = history[historyIndex];
+          event.preventDefault();
+        }
+        return;
+      }
+
+      if (event.key === "ArrowDown") {
+        if (!suggest.hidden && wfFiltered.length > 0) {
+          event.preventDefault();
+          updateWfSuggestionHighlight((wfSuggestionIndex + 1) % wfFiltered.length);
+          return;
+        }
+        if (historyIndex < history.length - 1) {
+          historyIndex++;
+          input.value = history[historyIndex];
+        } else {
+          historyIndex = history.length;
+          input.value = "";
+        }
+        event.preventDefault();
+        return;
+      }
+
+      if (event.key === "Enter") {
+        if (!suggest.hidden) {
+          suggest.hidden = true;
+        }
+
+        const value = input.value.trim();
+        if (!value) return;
+
+        history.push(value);
+        historyIndex = history.length;
+
+        // add <url> <name> <cat> 命令：添加书签（分组不存在自动新建）
+        const addMatch = value.match(/^add(?:\s+(\S+))?(?:\s+(.+?)(?:\s+(.+))?)?$/i);
+        if (addMatch) {
+          const url = addMatch[1];
+          const title = addMatch[2]?.trim();
+          const catName = addMatch[3]?.trim();
+
+          const state = (window as any).__startpageStore?.();
+          if (!state) {
+            showToast("数据未就绪", "error");
+            return;
+          }
+
+          let catId = "";
+          if (catName) {
+            const existing = state.categories.find(
+              (c: any) => c.name.toLowerCase() === catName.toLowerCase(),
+            );
+            catId = existing ? existing.id : addCategory(catName).id;
+          }
+
+          addBookmark({ href: url, title, categoryId: catId });
+          showToast(`已添加${title ? `「${title}」` : ""}${catName ? ` → ${catName}` : ""}`, "info");
+          input.value = "";
+          resetStyles(elements);
+          return;
+        }
+
+        // run <分类名>  命令
+        const runMatch = value.match(/^run\s+(.+)$/i);
+        if (runMatch) {
+          runCategory(runMatch[1]);
+          input.value = "";
+          resetStyles(elements);
+          return;
+        }
+
+        // wf<名称> / workflow<名称>  批量打开工作流
+        const wfMatch = value.match(/^(?:wf|workflow)[\s+]+?(.+)$/i) || value.match(/^(?:wf|workflow)(.+)$/i);
+        if (wfMatch) {
+          const needle = wfMatch[1].trim().toLowerCase();
+          const state = (window as any).__startpageStore?.();
+          if (state) {
+            const wf = state.workflows.find((w: any) => w.name.toLowerCase().includes(needle));
+            if (wf) {
+              const bmUrls = state.bookmarks
+                .filter((b: any) => wf.bookmarkIds?.includes(b.id))
+                .map((b: any) => b.href);
+              const allUrls: string[] = (wf.urls?.length ? wf.urls : bmUrls);
+              if (allUrls.length > 0) {
+                openUrls(allUrls);
+                showToast(`已打开 ${allUrls.length} 个标签页（${wf.name}）`, "info");
+              } else {
+                showToast(`工作流「${wf.name}」中没有链接`, "error");
+              }
+            } else {
+              showToast(`未找到工作流「${needle}」`, "error");
+            }
+          }
+          input.value = "";
+          resetStyles(elements);
+          return;
+        }
+
+        const match = findBookmarkMatch(value.toLowerCase(), elements);
+        if (match) {
+          window.open(match.href, "_blank", "noopener,noreferrer");
+          input.value = "";
+          resetStyles(elements);
+        } else {
+          navigate(value);
+          input.value = "";
+          resetStyles(elements);
+        }
+      }
+    });
+
+    // ---------- 搜索引擎下拉菜单 ----------
+    function renderEngineMenu(): void {
+      const menu = document.getElementById("engine-menu") as HTMLDivElement;
+      if (!menu) return;
+      const state = (window as any).__startpageStore?.();
+      if (!state) return;
+      const current = state.searchEngine;
+      const custom = state.customSearchEngine;
+      let html = "";
+      for (const [id, info] of Object.entries(SEARCH_ENGINES)) {
+        const active = current === id ? "active" : "";
+        html += `<button type="button" class="engine-item ${active}" data-engine="${id}">${info.label}</button>`;
+      }
+      if (custom?.name) {
+        const active = current === "custom" ? "active" : "";
+        html += `<button type="button" class="engine-item ${active}" data-engine="custom">${custom.name}</button>`;
+      }
+      menu.innerHTML = html;
+
+      menu.querySelectorAll<HTMLButtonElement>(".engine-item").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.engine!;
+          setSearchEngine(id as any);
+          menu.hidden = true;
+          updateSearchEnginePrompt();
+        });
+      });
+    }
+
+    function positionEngineMenu(): void {
+      const promptEl = document.getElementById("prompt-engine")!;
+      const menu = document.getElementById("engine-menu")!;
+      const rect = promptEl.getBoundingClientRect();
+      menu.style.left = rect.left + "px";
+      menu.style.top = (rect.bottom + 6) + "px";
+      menu.style.minWidth = Math.max(160, rect.width) + "px";
+    }
+
+    function positionWfSuggest(): void {
+      const suggest = document.getElementById("wf-suggest") as HTMLDivElement;
+      if (!suggest || suggest.hidden) return;
+      const inputRect = input.getBoundingClientRect();
+      suggest.style.left = inputRect.left + "px";
+      suggest.style.top = (inputRect.bottom + 6) + "px";
+      suggest.style.minWidth = Math.max(220, inputRect.width) + "px";
+    }
+
+    function repositionAllMenus(): void {
+      const menu = document.getElementById("engine-menu")!;
+      if (!menu.hidden) positionEngineMenu();
+      positionWfSuggest();
+    }
+
+    window.addEventListener("scroll", repositionAllMenus, { passive: true });
+    window.addEventListener("resize", repositionAllMenus);
+
+    const promptEngine = document.getElementById("prompt-engine")!;
+    promptEngine.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const menu = document.getElementById("engine-menu")!;
+      if (menu.hidden) {
+        renderEngineMenu();
+        positionEngineMenu();
+        menu.hidden = false;
+      } else {
+        menu.hidden = true;
+      }
+    });
+    promptEngine.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        promptEngine.click();
+      }
+    });
+
+    document.addEventListener("click", () => {
+      const menu = document.getElementById("engine-menu")!;
+      if (!menu.hidden) menu.hidden = true;
+      const suggest = document.getElementById("wf-suggest")!;
+      if (!suggest.hidden) suggest.hidden = true;
+    });
+
+    subscribe(() => {
+      updateSearchEnginePrompt();
+      const menu = document.getElementById("engine-menu")!;
+      if (!menu.hidden) {
+        renderEngineMenu();
+        positionEngineMenu();
+      }
+    });
+
+    // ---------- 工作流智能提示 ----------
+    let wfSuggestionIndex = -1;
+    let wfFiltered: any[] = [];
+
+    function renderWfSuggestions(prefix: string): void {
+      const suggest = document.getElementById("wf-suggest") as HTMLDivElement;
+      if (!suggest) return;
+      const state = (window as any).__startpageStore?.();
+      if (!state) {
+        suggest.hidden = true;
+        return;
+      }
+      if (state.workflows.length === 0) {
+        suggest.hidden = true;
+        wfSuggestionIndex = -1;
+        wfFiltered = [];
+        return;
+      }
+      wfFiltered = state.workflows;
+      wfSuggestionIndex = 0;
+      suggest.innerHTML = wfFiltered.map((w: any, i: number) => {
+        const count = (w.urls?.length ?? 0) || state.bookmarks.filter((b: any) => w.bookmarkIds.includes(b.id)).length;
+        return `<button type="button" class="wf-suggest-item ${i === 0 ? "active" : ""}" data-wf-id="${w.id}"><span class="wf-suggest-name">${w.name}</span><span class="wf-suggest-count">${count} 项</span></button>`;
+      }).join("");
+      const inputRect = input.getBoundingClientRect();
+      suggest.style.left = inputRect.left + "px";
+      suggest.style.top = (inputRect.bottom + 6) + "px";
+      suggest.style.minWidth = Math.max(160, inputRect.width) + "px";
+      suggest.hidden = false;
+
+      suggest.querySelectorAll<HTMLButtonElement>(".wf-suggest-item").forEach((btn, idx) => {
+        btn.addEventListener("click", () => {
+          insertWfSuggestion(idx);
+        });
+        btn.addEventListener("mouseenter", () => {
+          updateWfSuggestionHighlight(idx);
+        });
+      });
+    }
+
+    function updateWfSuggestionHighlight(index: number): void {
+      wfSuggestionIndex = index;
+      const items = document.querySelectorAll<HTMLButtonElement>(".wf-suggest-item");
+      items.forEach((item, i) => item.classList.toggle("active", i === index));
+    }
+
+    function insertWfSuggestion(index: number): void {
+      const wf = wfFiltered[index];
+      if (!wf) return;
+      input.value = "wf " + wf.name;
+      const suggest = document.getElementById("wf-suggest")!;
+      suggest.hidden = true;
+      input.focus();
+    }
+
+    window.addEventListener("tabs:change", () => {
+      wfSuggestionIndex = -1;
+      wfFiltered = [];
+      const suggest = document.getElementById("wf-suggest")!;
+      if (!suggest.hidden) suggest.hidden = true;
+    });
+
+    input.focus();
+    document.addEventListener("keydown", (e) => {
+      if (e.target === document.body) input.focus();
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", initializeTerminal);
+</script>

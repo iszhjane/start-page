@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.astro/
+test-results/
+package-lock.json
+*.log
+.DS_Store
+

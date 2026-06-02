@@ -1,0 +1,44 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Topbar from "../components/Topbar.astro";
+import Card from "../components/card.astro";
+import Pager from "../components/Pager.astro";
+import CommandLine from "../components/commandLine.astro";
+import ManageModal from "../components/ManageModal.astro";
+import Toast from "../components/Toast.astro";
+---
+
+<Layout title="zzh.editor's startpage.">
+  <main class="content">
+    <h1 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">书签启动页</h1>
+    <Topbar />
+    <Card />
+    <Pager />
+    <CommandLine />
+  </main>
+  <ManageModal />
+  <Toast />
+  <noscript>
+    <div style="position:fixed;inset:0;display:grid;place-items:center;background:#0f1419;color:#e6e8eb;font-family:system-ui,sans-serif;z-index:9999">
+      <p>请启用 JavaScript 以使用此启动页。</p>
+    </div>
+  </noscript>
+</Layout>
+
+<style>
+  .content {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    width: 100%;
+    max-width: 1024px;
+  }
+
+  @media (max-width: 1040px) {
+    .content {
+      gap: 0.75rem;
+      padding-bottom: 5.5rem;
+    }
+  }
+</style>

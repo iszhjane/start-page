@@ -1,0 +1,2032 @@
+---
+// 设置面板：4 sub-tab（主题 / 书签 / 分组 / 快捷键）
+// 通过 window 全局事件 manage:open / manage:close 触发
+---
+
+<div id="manage-modal" class="modal" hidden>
+  <div class="modal-backdrop" data-close></div>
+   <div class="panel" data-squircle data-squircle-radius="16" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <header class="panel-header">
+      <h2 id="modal-title">设置</h2>
+      <button type="button" class="icon-btn" aria-label="关闭" data-close>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </header>
+
+    <nav class="subtabs" id="subtabs" aria-label="设置分组">
+      <button type="button" class="subtab active" data-sub="theme" data-squircle data-squircle-radius="999">主题</button>
+      <button type="button" class="subtab" data-sub="bookmarks" data-squircle data-squircle-radius="999">书签</button>
+      <button type="button" class="subtab" data-sub="categories" data-squircle data-squircle-radius="999">分组</button>
+      <button type="button" class="subtab" data-sub="workflows" data-squircle data-squircle-radius="999">工作流</button>
+      <button type="button" class="subtab" data-sub="search" data-squircle data-squircle-radius="999">搜索引擎</button>
+      <button type="button" class="subtab" data-sub="shortcuts" data-squircle data-squircle-radius="999">快捷键</button>
+      <button type="button" class="subtab" data-sub="sync" data-squircle data-squircle-radius="999">同步</button>
+    </nav>
+
+    <div class="panel-body">
+      <!-- ============== 主题 ============== -->
+      <section class="subpanel" data-subpanel="theme" hidden>
+        <div class="theme-cards" id="theme-cards"></div>
+        <div class="theme-mode" id="theme-mode">
+          <span class="theme-mode-label">模式</span>
+          <div class="theme-mode-group" data-squircle data-squircle-radius="999">
+            <button type="button" data-mode="light" data-squircle data-squircle-radius="999">浅色</button>
+            <button type="button" data-mode="dark" data-squircle data-squircle-radius="999">深色</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== 书签 ============== -->
+      <section class="subpanel" data-subpanel="bookmarks" hidden>
+          <div class="bm-toolbar">
+          <div class="bm-toolbar-left">
+            <button type="button" class="btn primary" id="bm-add">+ 添加</button>
+            <button type="button" class="btn" id="bm-batch">批量</button>
+          </div>
+          <div class="bm-toolbar-right">
+            <span class="bm-selection-info" id="bm-selection-info"></span>
+            <button type="button" class="btn" id="bm-select-all">全选</button>
+            <div class="bm-sort-wrap">
+              <button type="button" class="btn" id="bm-sort">排序 ▾</button>
+              <div class="bm-sort-menu" id="bm-sort-menu" hidden>
+                <button type="button" class="bm-sort-item" data-sort="alpha">首字母</button>
+                <button type="button" class="bm-sort-item" data-sort="added">添加时间</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bm-form" id="bm-form" hidden data-squircle data-squircle-radius="16">
+          <label for="bm-form-title" class="sr-only">标题</label>
+          <input type="text" id="bm-form-title" placeholder="标题（可选）" />
+          <label for="bm-form-url" class="sr-only">网址</label>
+          <input type="url" id="bm-form-url" placeholder="网址，如 https://example.com" />
+          <select id="bm-form-cat"></select>
+          <div class="bm-form-actions">
+            <button type="button" class="btn" id="bm-form-cancel">取消</button>
+            <button type="button" class="btn primary" id="bm-form-save">保存</button>
+          </div>
+        </div>
+
+        <div class="bm-form" id="bm-batch-form" hidden data-squircle data-squircle-radius="16">
+          <textarea id="bm-batch-text" rows="4" placeholder="每行：网址  标题（标题可选）&#10;https://github.com  GitHub&#10;https://news.ycombinator.com"></textarea>
+          <select id="bm-batch-cat"></select>
+          <div class="bm-form-actions">
+            <button type="button" class="btn" id="bm-batch-cancel">取消</button>
+            <button type="button" class="btn primary" id="bm-batch-save">批量导入</button>
+          </div>
+        </div>
+
+        <div class="bm-move-form" id="bm-move-form" hidden data-squircle data-squircle-radius="16">
+          <label>移入分组：</label>
+          <select id="bm-move-cat"></select>
+          <div class="bm-form-actions">
+            <button type="button" class="btn" id="bm-move-cancel">取消</button>
+            <button type="button" class="btn primary" id="bm-move-save">确认</button>
+            <button type="button" class="btn danger" id="bm-move-delete">删除</button>
+          </div>
+        </div>
+
+        <div class="bm-grid" id="bm-grid"></div>
+      </section>
+
+      <!-- ============== 分组 ============== -->
+      <section class="subpanel" data-subpanel="categories" hidden>
+        <div class="cat-toolbar">
+          <button type="button" class="btn primary" id="cat-add">+ 新建分组</button>
+          <span class="cat-hint">删除分组后，原归属书签将移出分类（仍保留在「全部」中）</span>
+        </div>
+
+        <div class="cat-form" id="cat-add-form" hidden data-squircle data-squircle-radius="16">
+          <label for="cat-add-name" class="sr-only">分组名</label>
+          <input type="text" id="cat-add-name" placeholder="分组名，如：工作" />
+          <div class="bm-form-actions">
+            <button type="button" class="btn" id="cat-add-cancel">取消</button>
+            <button type="button" class="btn primary" id="cat-add-save">保存</button>
+          </div>
+        </div>
+
+        <div class="cat-list" id="cat-list"></div>
+      </section>
+
+      <!-- ============== 搜索引擎 ============== -->
+      <section class="subpanel" data-subpanel="search" hidden>
+        <div class="search-cards" id="search-cards"></div>
+        <div class="bm-form" id="search-custom-form" hidden data-squircle data-squircle-radius="16">
+          <input type="text" id="search-custom-name" placeholder="引擎名称，如：My Search" />
+          <input type="text" id="search-custom-url" placeholder="搜索 URL，用 {q} 代替关键词，如：https://example.com/search?q={q}" />
+          <div class="bm-form-actions">
+            <button type="button" class="btn" id="search-custom-cancel">取消</button>
+            <button type="button" class="btn primary" id="search-custom-save">保存</button>
+          </div>
+        </div>
+        <p class="shortcut-footnote">终端栏输入任意文本按回车，将使用所选搜索引擎搜索；命中已有书签则直接打开对应链接。</p>
+      </section>
+
+      <!-- ============== 工作流 ============== -->
+      <section class="subpanel" data-subpanel="workflows" hidden>
+        <p class="shortcut-footnote tips">选择一个或多个书签保存为工作流，在主页输入 <kbd>wf+名称</kbd> 或 <kbd>workflow+名称</kbd> 批量打开。</p>
+        <div class="cat-toolbar">
+          <button type="button" class="btn primary" id="wf-add">+ 新建工作流</button>
+        </div>
+        <div class="cat-list" id="wf-list"></div>
+
+        <div id="wf-popover" class="bm-popover" role="dialog" aria-modal="true" aria-label="新建工作流" hidden>
+          <div class="bm-popover-backdrop" data-wf-close></div>
+          <div class="bm-popover-panel" data-squircle data-squircle-radius="16">
+            <input type="text" id="wf-popover-name" placeholder="输出名称，如：AI" />
+            <label class="wf-field-label">链接（一行一条）</label>
+            <textarea id="wf-popover-urls" rows="3" placeholder="https://example.com"></textarea>
+            <div class="wf-cat-filters" id="wf-cat-filters"></div>
+            <div class="bm-grid" id="wf-popover-grid" style="max-height:200px;overflow-y:auto"></div>
+            <div class="bm-form-actions" style="margin-top:8px">
+              <button type="button" class="btn" data-wf-close>取消</button>
+              <button type="button" class="btn primary" id="wf-popover-save">保存</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== 同步 ============== -->
+      <section class="subpanel sync-panel" data-subpanel="sync" hidden>
+        <div id="sync-status-bar">
+          <span id="sync-indicator-text" class="sync-indicator">检查中...</span>
+          <span id="sync-last-time" class="sync-muted"></span>
+        </div>
+        <button type="button" class="btn primary" id="sync-force-btn" hidden>手动同步</button>
+        <hr class="sync-divider" />
+        <div id="sync-auth-section">
+          <div id="sync-user-info" hidden>
+            <p id="sync-user-email" class="sync-user-line"></p>
+            <p id="sync-user-meta" class="sync-muted"></p>
+          </div>
+          <div id="sync-auth-form">
+            <h4 class="sync-form-title">登录以跨设备同步</h4>
+            <p class="sync-muted" style="margin-bottom:8px">设置账号后，你的书签和设置将在所有设备上自动同步。</p>
+            <input type="email" id="sync-email" placeholder="邮箱" class="sync-input" />
+            <input type="password" id="sync-password" placeholder="密码" class="sync-input" />
+            <div class="sync-form-actions">
+              <button type="button" class="btn primary" id="sync-login-btn">登录</button>
+              <button type="button" class="btn" id="sync-signup-btn">注册</button>
+              <button type="button" class="btn danger" id="sync-link-btn" hidden>绑定邮箱</button>
+              <button type="button" class="btn danger" id="sync-logout-btn" hidden>退出登录</button>
+            </div>
+            <p id="sync-error-msg" class="sync-error" hidden></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== 快捷键 ============== -->
+      <section class="subpanel" data-subpanel="shortcuts" hidden>
+        <div class="shortcut-table" data-squircle data-squircle-radius="16">
+          <div class="shortcut-row">
+            <div class="shortcut-label">聚焦输入框</div>
+            <span class="shortcut-keys"><kbd class="shortcut-key">/</kbd></span>
+          </div>
+          <div class="shortcut-row">
+            <div class="shortcut-label">下一分组</div>
+            <span class="shortcut-keys"><kbd class="shortcut-key">Tab</kbd></span>
+          </div>
+          <div class="shortcut-row">
+            <div class="shortcut-label">上一分组</div>
+            <span class="shortcut-keys"><kbd class="shortcut-key">Shift</kbd><span class="shortcut-plus">+</span><kbd class="shortcut-key">Tab</kbd></span>
+          </div>
+          <div class="shortcut-row">
+            <div class="shortcut-label">清空输入框</div>
+            <span class="shortcut-keys"><kbd class="shortcut-key">Esc</kbd></span>
+          </div>
+          <div class="shortcut-row">
+            <div class="shortcut-label">执行命令 / 打开命中</div>
+            <span class="shortcut-keys"><kbd class="shortcut-key">Enter</kbd></span>
+          </div>
+          <div class="shortcut-row">
+            <div class="shortcut-label">上一条历史命令</div>
+            <span class="shortcut-keys"><kbd class="shortcut-key">↑</kbd></span>
+          </div>
+          <div class="shortcut-row">
+            <div class="shortcut-label">下一条历史命令</div>
+            <span class="shortcut-keys"><kbd class="shortcut-key">↓</kbd></span>
+          </div>
+          <div class="shortcut-row">
+            <div class="shortcut-label">打开管理面板</div>
+            <span class="shortcut-hint" style="margin-left:auto">点击右上角齿轮</span>
+          </div>
+        </div>
+        <p class="shortcut-footnote">快捷键暂不支持自定义。</p>
+      </section>
+
+    </div>
+  </div>
+  <div id="mm-confirm" class="bm-popover" role="dialog" aria-modal="true" aria-label="确认操作" hidden>
+    <div class="bm-popover-backdrop" data-mm-confirm-close></div>
+    <div class="bm-popover-panel" data-squircle data-squircle-radius="16">
+      <h3 id="mm-confirm-title">确认</h3>
+      <p id="mm-confirm-text">确定执行此操作？</p>
+      <div class="bm-popover-actions">
+        <button type="button" class="btn" data-mm-confirm-close>取消</button>
+        <button type="button" class="btn danger" id="mm-confirm-ok">确认</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  #manage-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: grid;
+    place-items: center;
+    padding: 2rem 1rem;
+  }
+
+  #manage-modal[hidden] {
+    display: none;
+  }
+
+  .modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  .panel {
+    position: relative;
+    width: 100%;
+    max-width: 920px;
+    max-height: 85vh;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px 14px;
+    flex-shrink: 0;
+  }
+
+  .panel-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .panel-header .icon-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface-translucent);
+    color: var(--text);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+  .panel-header .icon-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+  .panel-header .icon-btn:hover {
+    background: var(--hover);
+  }
+
+  .subtabs {
+    display: flex;
+    gap: 6px;
+    padding: 12px 24px 4px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .subtab {
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+
+  .subtab:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+
+  .subtab.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px 24px;
+  }
+
+  .subpanel[hidden] {
+    display: none;
+  }
+
+  /* ============== 主题 panel ============== */
+  .theme-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .theme-card {
+    cursor: pointer;
+    border: 1px solid var(--border);
+    padding: 16px;
+    background: var(--surface-translucent);
+    transition: all var(--transition);
+    position: relative;
+  }
+
+  .theme-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .theme-card.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+
+  .theme-card.active::after {
+    content: "✓";
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 20px;
+    height: 20px;
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+  }
+
+  .theme-card-preview {
+    height: 70px;
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .theme-card[data-theme="default"] .theme-card-preview {
+    background: linear-gradient(135deg, #e9ecef, #dee2e6);
+    color: #1a1a1a;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+
+  .theme-card[data-theme="pixel"] .theme-card-preview {
+    background: #0a0a0a;
+    color: #ffffff;
+    border-color: #ffffff;
+    font-family: monospace;
+    image-rendering: pixelated;
+    letter-spacing: 1px;
+  }
+
+  .theme-card-name {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+
+  .theme-card-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .theme-mode {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .theme-mode-label {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .theme-mode-group {
+    display: inline-flex;
+    background: var(--surface-translucent);
+    border: 1px solid var(--border);
+    padding: 3px;
+  }
+
+  .theme-mode-group button {
+    background: transparent;
+    border: none;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+
+  .theme-mode-group button.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  /* ============== 书签 panel ============== */
+  .bm-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .bm-toolbar-left,
+  .bm-toolbar-right {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .bm-sort-wrap {
+    position: relative;
+  }
+
+  .bm-sort-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 120px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .bm-sort-item {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 6px 12px;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition);
+    font-family: inherit;
+  }
+
+  .bm-sort-item:hover {
+    background: var(--hover);
+  }
+
+  .bm-sort-item.active {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .search-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .search-card {
+    text-align: center;
+    padding: 12px 16px !important;
+    cursor: pointer;
+  }
+
+  .search-card .theme-card-name {
+    font-size: 14px;
+    margin-bottom: 0;
+  }
+
+  .search-card-custom {
+    font-size: 22px !important;
+    font-weight: 400 !important;
+    line-height: 1;
+  }
+
+  @media (max-width: 600px) {
+    .search-cards {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .btn {
+    background: var(--surface-translucent);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+
+  .btn:hover:not(:disabled) {
+    background: var(--hover);
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .btn.primary:hover:not(:disabled) {
+    filter: brightness(1.05);
+  }
+
+  .btn.danger {
+    color: #ef4444;
+    border-color: color-mix(in srgb, #ef4444 40%, transparent);
+  }
+
+  .btn.danger:hover:not(:disabled) {
+    background: color-mix(in srgb, #ef4444 10%, transparent);
+  }
+
+  .bm-selection-info {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .bm-form,
+  .bm-move-form,
+  .cat-form {
+    border: 1px solid var(--border);
+    padding: 12px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--surface-translucent);
+  }
+
+  .bm-move-form {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  #bm-move-delete {
+    margin-left: auto;
+  }
+
+  .bm-move-form label {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .bm-form input[type="text"],
+  .bm-form input[type="url"],
+  .bm-form select,
+  .bm-form textarea,
+  .bm-move-form select,
+  .cat-form input[type="text"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+
+  .bm-form input[type="text"]:focus,
+  .bm-form input[type="url"]:focus,
+  .bm-form select:focus,
+  .bm-form textarea:focus,
+  .bm-move-form select:focus,
+  .cat-form input[type="text"]:focus {
+    outline: 1px solid var(--accent);
+  }
+
+  .bm-form-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .bm-grid[hidden] {
+    display: none;
+  }
+
+  .bm-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .bm-grid-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--surface-translucent);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all var(--transition);
+    min-width: 0;
+  }
+
+  .bm-grid-item:hover {
+    background: var(--hover);
+  }
+
+  .bm-grid-item.selected {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  .bm-grid-item input[type="checkbox"] {
+    flex-shrink: 0;
+    accent-color: var(--accent);
+  }
+
+  .bm-grid-item .bm-name {
+    font-size: 13px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .bm-grid-item .bm-cat {
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  /* ============== 分组 panel ============== */
+  .cat-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .cat-hint {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .cat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .cat-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--surface-translucent);
+    border: 1px solid var(--border);
+    transition: all var(--transition);
+  }
+
+  .cat-row:hover {
+    background: var(--hover);
+  }
+
+  .cat-row-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .cat-row-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cat-row-count {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1px 8px;
+  }
+
+  .cat-row-badge {
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .cat-row-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .cat-row-edit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .cat-row-edit input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 10px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+
+  .cat-row-edit input:focus {
+    outline: 1px solid var(--accent);
+  }
+
+  @media (max-width: 600px) {
+    .theme-cards {
+      grid-template-columns: 1fr;
+    }
+    .bm-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 400px) {
+    .bm-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ============== 快捷键 panel ============== */
+  .shortcut-table {
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .shortcut-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .shortcut-row:last-child {
+    border-bottom: none;
+  }
+
+  .shortcut-label {
+    color: var(--text);
+  }
+
+  .shortcut-keys {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .shortcut-key {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--surface-translucent);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    margin: 0 2px;
+  }
+
+  .shortcut-plus {
+    margin: 0 2px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .shortcut-hint {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .shortcut-footnote {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* 工作流按钮与说明文字间距 */
+  .subpanel[data-subpanel="workflows"] .cat-toolbar {
+    margin-top: 12px;
+  }
+
+  /* 工作流弹窗内容不溢出 */
+  #wf-popover .bm-popover-panel {
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  #wf-popover .bm-popover-panel .bm-popover-actions {
+    margin-top: 8px;
+  }
+
+  /* ============== 同步 panel ============== */
+  .sync-panel {
+    max-width: 420px;
+  }
+  .sync-indicator {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .sync-muted {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 2px 0;
+  }
+  .sync-user-line {
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .sync-error {
+    font-size: 12px;
+    color: #ef4444;
+    margin-top: 6px;
+  }
+  .sync-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+  }
+  #sync-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .sync-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+  }
+  .sync-input:focus {
+    outline: 1px solid var(--accent);
+  }
+  .sync-form-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .sync-form-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .wf-field-label {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  #wf-popover-urls {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+  }
+
+  #wf-popover-urls:focus {
+    outline: 1px solid var(--accent);
+  }
+
+  .wf-cat-filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .wf-cat-filter {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 3px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all var(--transition);
+    font-family: inherit;
+  }
+
+  .wf-cat-filter:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+
+  .wf-cat-filter.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+</style>
+
+<script>
+  import {
+    getState,
+    subscribe,
+    addBookmark,
+    addBookmarksBatch,
+    parseBatchInput,
+    deleteBookmarks,
+    updateBookmarksCategory,
+    addCategory,
+    renameCategory,
+    deleteCategory,
+    reorderCategory,
+    normalizeUrl,
+    addWorkflow,
+    deleteWorkflow,
+    setThemeMode,
+    setThemeStyle,
+    setBookmarkSort,
+    setSearchEngine,
+    setCustomSearchEngine,
+    SEARCH_ENGINES,
+    type Store,
+    type Bookmark,
+    type Category,
+    type BookmarkSort,
+    type SearchEngineId,
+  } from "../lib/store";
+  import { applyTheme, THEME_OPTIONS } from "../lib/themes";
+  import { escapeHtml, escapeAttr, showToast, saveFocus, restoreFocus } from "../lib/helpers";
+  import { getCurrentUser, isAnonymous, onAuthChange, signInWithEmail, signUpWithEmail, linkEmail, signOut } from "../lib/auth";
+  import { isConfigured } from "../lib/supabase";
+  import { onSyncStatus, getLastSynced, doSync } from "../lib/sync";
+
+  const modal = document.getElementById("manage-modal")!;
+  const subtabsEl = document.getElementById("subtabs")!;
+
+  type SubKey = "theme" | "bookmarks" | "categories" | "workflows" | "search" | "shortcuts" | "sync";
+  let activeSub: SubKey = "theme";
+  let selectedIds = new Set<string>();
+  let editingCatId: string | null = null;
+
+  // 打开 / 关闭
+  function openModal(): void {
+    saveFocus();
+    modal.hidden = false;
+    switchSub(activeSub);
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeModal(): void {
+    modal.hidden = true;
+    document.body.style.overflow = "";
+    selectedIds.clear();
+    editingCatId = null;
+    window.dispatchEvent(new CustomEvent("manage:close"));
+    restoreFocus();
+  }
+
+  window.addEventListener("manage:open", openModal);
+  modal.querySelectorAll<HTMLElement>("[data-close]").forEach((el) =>
+    el.addEventListener("click", closeModal),
+  );
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !modal.hidden) {
+      e.preventDefault();
+      closeModal();
+    }
+  });
+
+  // ---------- 确认弹层 ----------
+  const mmConfirm = document.getElementById("mm-confirm")!;
+  document.body.appendChild(mmConfirm);
+  const mmConfirmTitle = document.getElementById("mm-confirm-title")!;
+  const mmConfirmText = document.getElementById("mm-confirm-text")!;
+  const mmConfirmOk = document.getElementById("mm-confirm-ok") as HTMLButtonElement;
+  let mmConfirmCallback: (() => void) | null = null;
+
+  function openModalConfirm(title: string, message: string, onConfirm: () => void): void {
+    mmConfirmTitle.textContent = title;
+    mmConfirmText.textContent = message;
+    mmConfirmCallback = onConfirm;
+    saveFocus();
+    mmConfirm.hidden = false;
+  }
+
+  function closeModalConfirm(): void {
+    mmConfirm.hidden = true;
+    mmConfirmCallback = null;
+    restoreFocus();
+  }
+
+  mmConfirm.querySelectorAll<HTMLElement>("[data-mm-confirm-close]").forEach((el) =>
+    el.addEventListener("click", closeModalConfirm),
+  );
+  mmConfirmOk.addEventListener("click", () => {
+    if (mmConfirmCallback) mmConfirmCallback();
+    closeModalConfirm();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !mmConfirm.hidden) closeModalConfirm();
+  });
+
+  // ---------- Sub-tab 切换 ----------
+  subtabsEl.querySelectorAll<HTMLButtonElement>(".subtab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const sub = btn.dataset.sub as SubKey;
+      if (sub) switchSub(sub);
+    });
+  });
+
+  subtabsEl.addEventListener("keydown", (e) => {
+    const btns = Array.from(subtabsEl.querySelectorAll<HTMLButtonElement>(".subtab"));
+    const idx = btns.findIndex((b) => b.classList.contains("active"));
+    if (idx === -1) return;
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      const next = (idx + 1) % btns.length;
+      btns[next].click();
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      const prev = (idx - 1 + btns.length) % btns.length;
+      btns[prev].click();
+    }
+  });
+
+  function switchSub(sub: SubKey): void {
+    activeSub = sub;
+    subtabsEl.querySelectorAll<HTMLButtonElement>(".subtab").forEach((b) => {
+      b.classList.toggle("active", b.dataset.sub === sub);
+    });
+    modal.querySelectorAll<HTMLElement>(".subpanel").forEach((p) => {
+      p.hidden = p.dataset.subpanel !== sub;
+    });
+    if (sub === "theme") renderTheme(getState());
+    if (sub === "bookmarks") {
+      renderBmGrid(getState());
+      selectedIds.clear();
+      updateSelectionInfo();
+      renderSortMenu(getState());
+    }
+    if (sub === "categories") {
+      editingCatId = null;
+      renderCatList(getState());
+    }
+    if (sub === "search") renderSearch(getState());
+    if (sub === "workflows") renderWorkflows(getState());
+    if (sub === "sync") renderSyncPanel();
+  }
+
+  // ---------- 主题 panel ----------
+  function renderTheme(state: Store): void {
+    const cardsEl = document.getElementById("theme-cards")!;
+    cardsEl.innerHTML = THEME_OPTIONS.map(
+      (opt) => `
+      <button type="button" class="theme-card ${opt.id === state.themeStyle ? "active" : ""}" data-theme="${opt.id}">
+        <div class="theme-card-preview">${opt.label}</div>
+        <div class="theme-card-name">${opt.label}</div>
+        <div class="theme-card-desc">${opt.description}</div>
+      </button>
+    `,
+    ).join("");
+
+    cardsEl.querySelectorAll<HTMLButtonElement>(".theme-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const id = card.dataset.theme as "default" | "pixel";
+        setThemeStyle(id);
+        applyTheme(getState().themeMode, id);
+      });
+    });
+
+    const modeEl = document.getElementById("theme-mode")!;
+    modeEl.querySelectorAll<HTMLButtonElement>("button[data-mode]").forEach((b) => {
+      const isActive = b.dataset.mode === state.themeMode;
+      b.classList.toggle("active", isActive);
+      b.setAttribute("aria-pressed", String(isActive));
+      b.onclick = () => {
+        const mode = b.dataset.mode as "light" | "dark";
+        setThemeMode(mode);
+        applyTheme(mode, getState().themeStyle);
+      };
+    });
+  }
+
+  // ---------- 书签 panel ----------
+  const bmGrid = document.getElementById("bm-grid")!;
+  const bmSelectionInfo = document.getElementById("bm-selection-info")!;
+  const bmSelectAll = document.getElementById("bm-select-all")!;
+  const bmMoveDelete = document.getElementById("bm-move-delete")!;
+
+  function renderBmGrid(state: Store): void {
+    bmGrid.innerHTML = state.bookmarks
+      .map((b) => {
+        const cat = state.categories.find((c) => c.id === b.categoryId);
+        return `
+        <label class="bm-grid-item ${selectedIds.has(b.id) ? "selected" : ""}" data-id="${b.id}">
+          <input type="checkbox" ${selectedIds.has(b.id) ? "checked" : ""} />
+          <span class="bm-name" title="${escapeAttr(b.href)}">${escapeHtml(b.title)}</span>
+          <span class="bm-cat">${escapeHtml(cat?.name ?? "未分类")}</span>
+        </label>
+      `;
+      })
+      .join("");
+
+    bmGrid.querySelectorAll<HTMLLabelElement>(".bm-grid-item").forEach((label) => {
+      const id = label.dataset.id!;
+      const cb = label.querySelector("input")!;
+      const toggle = () => {
+        if (selectedIds.has(id)) selectedIds.delete(id);
+        else selectedIds.add(id);
+        label.classList.toggle("selected", selectedIds.has(id));
+        cb.checked = selectedIds.has(id);
+        updateSelectionInfo();
+      };
+      cb.addEventListener("change", toggle);
+    });
+  }
+
+  function updateSelectionInfo(): void {
+    const n = selectedIds.size;
+    bmSelectionInfo.textContent = n === 0 ? "" : `已选 ${n} 项`;
+
+    if (n > 0) {
+      fillCategorySelect(bmMoveCat, getState().categories);
+      bmMoveForm.hidden = false;
+    } else {
+      bmMoveForm.hidden = true;
+    }
+
+    const total = getState().bookmarks.length;
+    if (total === 0) return;
+    bmSelectAll.textContent = n === total ? "返选" : "全选";
+  }
+
+  const bmMoveForm = document.getElementById("bm-move-form")!;
+  const bmMoveCat = document.getElementById("bm-move-cat") as HTMLSelectElement;
+
+  document.getElementById("bm-move-cancel")!.addEventListener("click", () => {
+    bmMoveForm.hidden = true;
+  });
+  document.getElementById("bm-move-save")!.addEventListener("click", () => {
+    const target = bmMoveCat.value;
+    if (!target) return;
+    const ids = Array.from(selectedIds);
+    selectedIds.clear();
+    updateBookmarksCategory(ids, target);
+    bmMoveForm.hidden = true;
+    updateSelectionInfo();
+  });
+
+  bmSelectAll.addEventListener("click", () => {
+    const allIds = getState().bookmarks.map((b) => b.id);
+    if (selectedIds.size === allIds.length) {
+      selectedIds.clear();
+    } else {
+      allIds.forEach((id) => selectedIds.add(id));
+    }
+    renderBmGrid(getState());
+    updateSelectionInfo();
+  });
+
+  bmMoveDelete.addEventListener("click", () => {
+    if (selectedIds.size === 0) return;
+    openModalConfirm("删除书签", `确认删除 ${selectedIds.size} 个书签？`, () => {
+      deleteBookmarks(Array.from(selectedIds));
+      selectedIds.clear();
+      updateSelectionInfo();
+    });
+  });
+
+  // 单条添加
+  const bmAddBtn = document.getElementById("bm-add")!;
+  const bmForm = document.getElementById("bm-form")!;
+  const bmFormTitle = document.getElementById("bm-form-title") as HTMLInputElement;
+  const bmFormUrl = document.getElementById("bm-form-url") as HTMLInputElement;
+  const bmFormCat = document.getElementById("bm-form-cat") as HTMLSelectElement;
+
+  function fillCategorySelect(sel: HTMLSelectElement, categories: Category[]): void {
+    sel.innerHTML = `<option value=""></option>` + categories
+      .sort((a, b) => a.order - b.order)
+      .map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`)
+      .join("");
+  }
+
+  function saveBmForm(): void {
+    const url = bmFormUrl.value.trim();
+    if (!url) {
+      showToast("请输入网址", "error");
+      return;
+    }
+    const state = getState();
+    const href = normalizeUrl(url);
+    if (state.bookmarks.some((b) => b.href === href)) {
+      showToast("该书签已存在", "error");
+      return;
+    }
+    addBookmark({
+      href: url,
+      title: bmFormTitle.value || undefined,
+      categoryId: bmFormCat.value,
+    });
+    bmFormTitle.value = "";
+    bmFormUrl.value = "";
+    bmForm.hidden = true;
+    bmGrid.hidden = false;
+    showToast("书签已添加", "info");
+  }
+
+  bmAddBtn.addEventListener("click", () => {
+    bmBatchForm.hidden = true;
+    bmGrid.hidden = true;
+    fillCategorySelect(bmFormCat, getState().categories);
+    bmFormTitle.value = "";
+    bmFormUrl.value = "";
+    bmForm.hidden = false;
+    bmFormUrl.focus();
+  });
+
+  document.getElementById("bm-form-cancel")!.addEventListener("click", () => {
+    bmForm.hidden = true;
+    bmGrid.hidden = false;
+  });
+  document.getElementById("bm-form-save")!.addEventListener("click", saveBmForm);
+  bmFormUrl.addEventListener("keydown", (e) => { if (e.key === "Enter") saveBmForm(); });
+
+  // 批量
+  const bmBatchBtn = document.getElementById("bm-batch")!;
+  const bmBatchForm = document.getElementById("bm-batch-form")!;
+  const bmBatchText = document.getElementById("bm-batch-text") as HTMLTextAreaElement;
+  const bmBatchCat = document.getElementById("bm-batch-cat") as HTMLSelectElement;
+
+  bmBatchBtn.addEventListener("click", () => {
+    bmForm.hidden = true;
+    bmGrid.hidden = true;
+    fillCategorySelect(bmBatchCat, getState().categories);
+    bmBatchText.value = "";
+    bmBatchForm.hidden = false;
+    bmBatchText.focus();
+  });
+  document.getElementById("bm-batch-cancel")!.addEventListener("click", () => {
+    bmBatchForm.hidden = true;
+    bmGrid.hidden = false;
+  });
+  document.getElementById("bm-batch-save")!.addEventListener("click", () => {
+    const lines = bmBatchText.value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) {
+      showToast("没有输入任何内容", "error");
+      return;
+    }
+
+    const existingHrefs = new Set(getState().bookmarks.map((b) => b.href));
+    let added = 0, skipped = 0;
+    const normalLines: string[] = [];
+
+    for (const line of lines) {
+      const addMatch = line.match(/^add\s+(\S+)(?:\s+(.+?)(?:\s+(.+))?)?$/i);
+      if (addMatch) {
+        const url = addMatch[1];
+        const href = normalizeUrl(url);
+        if (existingHrefs.has(href)) { skipped++; continue; }
+        existingHrefs.add(href);
+        const title = addMatch[2]?.trim();
+        const catName = addMatch[3]?.trim();
+        let catId = "";
+        if (catName) {
+          const state = getState();
+          const existing = state.categories.find(
+            (c) => c.name.toLowerCase() === catName.toLowerCase(),
+          );
+          catId = existing ? existing.id : addCategory(catName).id;
+        }
+        addBookmark({ href: url, title, categoryId: catId });
+        added++;
+      } else {
+        normalLines.push(line);
+        const href = normalizeUrl(line);
+        if (existingHrefs.has(href)) { skipped++; normalLines.pop(); }
+        else existingHrefs.add(href);
+      }
+    }
+
+    if (normalLines.length > 0) {
+      const items = parseBatchInput(normalLines.join("\n"));
+      if (items.length > 0) {
+        addBookmarksBatch(items, bmBatchCat.value);
+        added += items.length;
+      }
+    }
+
+    const msg = `已导入 ${added} 个书签${skipped > 0 ? `，${skipped} 个重复已跳过` : ""}`;
+    showToast(msg, skipped > 0 && added === 0 ? "error" : "info");
+    bmBatchText.value = "";
+    bmBatchForm.hidden = true;
+    bmGrid.hidden = false;
+  });
+
+  // ---------- 分组 panel ----------
+  const catListEl = document.getElementById("cat-list")!;
+  const catAddForm = document.getElementById("cat-add-form")!;
+  const catAddName = document.getElementById("cat-add-name") as HTMLInputElement;
+
+  document.getElementById("cat-add")!.addEventListener("click", () => {
+    catAddName.value = "";
+    catAddForm.hidden = false;
+    catAddName.focus();
+  });
+  document.getElementById("cat-add-cancel")!.addEventListener("click", () => {
+    catAddForm.hidden = true;
+  });
+  document.getElementById("cat-add-save")!.addEventListener("click", () => {
+    const name = catAddName.value.trim();
+    if (!name) return;
+    addCategory(name);
+    catAddForm.hidden = true;
+  });
+  catAddName.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      (document.getElementById("cat-add-save") as HTMLButtonElement).click();
+    }
+  });
+
+  function renderCatList(state: Store): void {
+    const sortedCats = [...state.categories].sort((a, b) => a.order - b.order);
+    if (sortedCats.length === 0) {
+      catListEl.innerHTML = `<div style="color: var(--muted); font-size: 13px; text-align: center; padding: 24px;">还没有分组</div>`;
+      return;
+    }
+    catListEl.innerHTML = sortedCats
+      .map((c) => {
+        const count = state.bookmarks.filter((b) => b.categoryId === c.id).length;
+        const isEditing = editingCatId === c.id;
+        const info = isEditing
+          ? `<div class="cat-row-edit">
+              <input type="text" class="cat-edit-input" value="${escapeAttr(c.name)}" />
+              <button type="button" class="btn primary" data-act="save-edit">保存</button>
+              <button type="button" class="btn" data-act="cancel-edit">取消</button>
+            </div>`
+          : `<div class="cat-row-info">
+              <span class="cat-row-name">${escapeHtml(c.name)}</span>
+              <span class="cat-row-count">${count} 项</span>
+              ${c.builtin ? '<span class="cat-row-badge">内置</span>' : ""}
+            </div>`;
+        const actions = isEditing
+          ? ""
+          : `<div class="cat-row-actions">
+              <button type="button" class="btn" data-act="edit">重命名</button>
+              <button type="button" class="btn danger" data-act="delete" ${c.builtin ? "" : ""}>删除</button>
+            </div>`;
+        return `<div class="cat-row" data-id="${c.id}">${info}${actions}</div>`;
+      })
+      .join("");
+
+    catListEl.querySelectorAll<HTMLElement>(".cat-row").forEach((row) => {
+      const id = row.dataset.id!;
+
+      const editBtn = row.querySelector<HTMLButtonElement>('[data-act="edit"]');
+      if (editBtn) {
+        editBtn.addEventListener("click", () => {
+          editingCatId = id;
+          renderCatList(getState());
+        });
+      }
+
+      const delBtn = row.querySelector<HTMLButtonElement>('[data-act="delete"]');
+      if (delBtn) {
+        delBtn.addEventListener("click", () => {
+          const cat = getState().categories.find((c) => c.id === id);
+          if (!cat) return;
+          const count = getState().bookmarks.filter((b) => b.categoryId === id).length;
+          const msg =
+            count > 0
+              ? `分组「${cat.name}」下有 ${count} 个书签。删除分组后这些书签将移出分类（仍保留在「全部」中）。`
+              : `确认删除分组「${cat.name}」？`;
+          openModalConfirm("删除分组", msg, () => {
+            deleteCategory(id);
+          });
+        });
+      }
+
+      const saveBtn = row.querySelector<HTMLButtonElement>('[data-act="save-edit"]');
+      if (saveBtn) {
+        saveBtn.addEventListener("click", () => {
+          const input = row.querySelector<HTMLInputElement>(".cat-edit-input");
+          if (!input) return;
+          const name = input.value.trim();
+          if (!name) return;
+          renameCategory(id, name);
+          editingCatId = null;
+        });
+      }
+
+      const cancelBtn = row.querySelector<HTMLButtonElement>('[data-act="cancel-edit"]');
+      if (cancelBtn) {
+        cancelBtn.addEventListener("click", () => {
+          editingCatId = null;
+          renderCatList(getState());
+        });
+      }
+
+      const editInput = row.querySelector<HTMLInputElement>(".cat-edit-input");
+      if (editInput) {
+        editInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            saveBtn?.click();
+          } else if (e.key === "Escape") {
+            cancelBtn?.click();
+          }
+        });
+        editInput.focus();
+        editInput.select();
+      }
+
+      // 拖拽重排（500ms 长按激活）
+      let dragTimer: ReturnType<typeof setTimeout> | null = null;
+      let dragActive = false;
+      let dragFrom = -1;
+
+      row.draggable = false;
+
+      row.addEventListener("mousedown", () => {
+        dragTimer = setTimeout(() => {
+          dragActive = true;
+          row.draggable = true;
+        }, 250);
+      });
+
+      row.addEventListener("mouseup", () => {
+        if (dragTimer) clearTimeout(dragTimer);
+        dragTimer = null;
+        row.draggable = false;
+        setTimeout(() => { dragActive = false; }, 10);
+      });
+
+      row.addEventListener("mouseleave", () => {
+        if (dragTimer) clearTimeout(dragTimer);
+        dragTimer = null;
+        row.draggable = false;
+      });
+
+      row.addEventListener("dragstart", (e) => {
+        if (!dragActive) { e.preventDefault(); return; }
+        dragFrom = Array.from(catListEl.querySelectorAll(".cat-row")).indexOf(row);
+        e.dataTransfer?.setData("text/plain", String(dragFrom));
+        row.style.opacity = "0.5";
+      });
+
+      row.addEventListener("dragend", () => {
+        row.style.opacity = "1";
+        dragActive = false;
+        dragFrom = -1;
+        catListEl.querySelectorAll<HTMLElement>(".cat-row").forEach((r) => {
+          r.style.borderBottom = "";
+        });
+      });
+
+      row.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        catListEl.querySelectorAll<HTMLElement>(".cat-row").forEach((r) => {
+          r.style.borderBottom = "";
+        });
+        const idx = Array.from(catListEl.querySelectorAll(".cat-row")).indexOf(row);
+        if (idx !== dragFrom) {
+          row.style.borderBottom = "2px solid var(--accent)";
+        }
+      });
+
+      row.addEventListener("dragleave", () => {
+        row.style.borderBottom = "";
+      });
+
+      row.addEventListener("drop", (e) => {
+        e.preventDefault();
+        catListEl.querySelectorAll<HTMLElement>(".cat-row").forEach((r) => {
+          r.style.borderBottom = "";
+        });
+        const toIdx = Array.from(catListEl.querySelectorAll(".cat-row")).indexOf(row);
+        if (dragFrom !== -1 && toIdx !== -1 && dragFrom !== toIdx) {
+          reorderCategory(dragFrom, toIdx);
+        }
+        dragActive = false;
+      });
+    });
+  }
+
+  // ---------- 快捷键 panel (只读) ----------
+  // 已在 HTML 里静态渲染
+
+  // ---------- 排序菜单 ----------
+  const bmSortBtn = document.getElementById("bm-sort")!;
+  const bmSortMenu = document.getElementById("bm-sort-menu")!;
+
+  bmSortBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const wasHidden = bmSortMenu.hidden;
+    bmSortMenu.hidden = !wasHidden;
+    bmSortBtn.setAttribute("aria-expanded", String(!wasHidden));
+  });
+  document.addEventListener("click", (e) => {
+    if (!bmSortMenu.hidden && !(e.target as HTMLElement).closest(".bm-sort-wrap")) {
+      bmSortMenu.hidden = true;
+    }
+  });
+  bmSortMenu.querySelectorAll<HTMLButtonElement>(".bm-sort-item").forEach((b) => {
+    b.addEventListener("click", () => {
+      const sort = b.dataset.sort as BookmarkSort;
+      setBookmarkSort(sort);
+      setTimeout(() => { bmSortMenu.hidden = true; }, 0);
+    });
+  });
+
+  function renderSortMenu(state: Store): void {
+    const labels: Record<BookmarkSort, string> = {
+      alpha: "首字母",
+      added: "添加时间",
+    };
+    bmSortBtn.textContent = `排序：${labels[state.bookmarkSort]} ▾`;
+    bmSortMenu.querySelectorAll<HTMLButtonElement>(".bm-sort-item").forEach((b) => {
+      b.classList.toggle("active", b.dataset.sort === state.bookmarkSort);
+    });
+  }
+
+  // ---------- 搜索引擎 panel ----------
+  function engineLabel(state: Store, id: SearchEngineId): string {
+    if (id === "custom") return state.customSearchEngine?.name ?? "+";
+    const entry = SEARCH_ENGINES[id as Exclude<SearchEngineId, "custom">];
+    return entry?.label ?? "Google";
+  }
+
+  function renderSearch(state: Store): void {
+    const cardsEl = document.getElementById("search-cards")!;
+    const presetEntries = Object.entries(SEARCH_ENGINES) as [SearchEngineId, { label: string; url: string }][];
+    const custom = state.customSearchEngine;
+
+    let html = presetEntries.map(
+      ([id, info]) => `
+      <button type="button" class="theme-card search-card ${id === state.searchEngine ? "active" : ""}" data-engine="${id}">
+        <span class="theme-card-name">${info.label}</span>
+      </button>
+    `,
+    ).join("");
+
+    if (custom?.name) {
+      html += `
+      <button type="button" class="theme-card search-card ${state.searchEngine === "custom" ? "active" : ""}" data-engine="custom">
+        <span class="theme-card-name search-card-custom">${custom.name}</span>
+      </button>
+      `;
+    }
+    html += `
+      <button type="button" class="theme-card search-card ${state.searchEngine === "custom" ? "active" : ""}" data-engine="custom">
+        <span class="theme-card-name search-card-custom">+</span>
+      </button>
+    `;
+
+    cardsEl.innerHTML = html;
+
+    cardsEl.querySelectorAll<HTMLButtonElement>(".theme-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const id = card.dataset.engine as SearchEngineId;
+        if (id === "custom") {
+          const form = document.getElementById("search-custom-form")!;
+          const nameInput = document.getElementById("search-custom-name") as HTMLInputElement;
+          const urlInput = document.getElementById("search-custom-url") as HTMLInputElement;
+          const st = getState();
+          nameInput.value = st.customSearchEngine?.name ?? "";
+          urlInput.value = st.customSearchEngine?.url ?? "";
+          form.hidden = false;
+          nameInput.focus();
+        } else {
+          setSearchEngine(id);
+          const st = getState();
+          renderSearch(st);
+          showToast(`搜索引擎已切换为 ${engineLabel(st, id)}`, "info");
+        }
+      });
+    });
+
+    const promptEl = document.querySelector<HTMLElement>("#prompt-engine");
+    if (promptEl) promptEl.textContent = engineLabel(state, state.searchEngine);
+  }
+
+  // 自定义搜索引擎表单
+  document.getElementById("search-custom-cancel")?.addEventListener("click", () => {
+    document.getElementById("search-custom-form")!.hidden = true;
+  });
+  function saveCustomSearch(): void {
+    const name = (document.getElementById("search-custom-name") as HTMLInputElement).value.trim();
+    const url = (document.getElementById("search-custom-url") as HTMLInputElement).value.trim();
+    if (!name || !url) {
+      showToast("请填写引擎名称和搜索 URL", "error");
+      return;
+    }
+    if (!url.includes("{q}") && !url.includes("${q}")) {
+      showToast("搜索 URL 中需要包含 {q} 作为关键词占位符", "error");
+      return;
+    }
+    setCustomSearchEngine(name, url);
+    document.getElementById("search-custom-form")!.hidden = true;
+    renderSearch(getState());
+    showToast(`已设置自定义搜索引擎：${name}`, "info");
+  }
+
+  document.getElementById("search-custom-save")?.addEventListener("click", saveCustomSearch);
+  document.getElementById("search-custom-name")?.addEventListener("keydown", (e) => { if (e.key === "Enter") saveCustomSearch(); });
+  document.getElementById("search-custom-url")?.addEventListener("keydown", (e) => { if (e.key === "Enter") saveCustomSearch(); });
+
+  // ---------- Workflow ----------
+  function renderWorkflows(state: Store): void {
+    const listEl = document.getElementById("wf-list")!;
+    if (state.workflows.length === 0) {
+      listEl.innerHTML = `<div style="color: var(--muted); font-size: 13px; text-align: center; padding: 24px;">还没有工作流</div>`;
+      return;
+    }
+    listEl.innerHTML = state.workflows.map((w) => {
+      const count = (w.urls?.length ?? 0) || state.bookmarks.filter((b) => w.bookmarkIds.includes(b.id)).length;
+      return `
+        <div class="cat-row" data-id="${escapeAttr(w.id)}">
+          <div class="cat-row-info">
+            <span class="cat-row-name">${escapeHtml(w.name)}</span>
+            <span class="cat-row-count">${count} 项</span>
+          </div>
+          <div class="cat-row-actions">
+            <button type="button" class="btn danger" data-act="wf-delete">删除</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    listEl.querySelectorAll<HTMLElement>(".cat-row").forEach((row) => {
+      const delBtn = row.querySelector<HTMLButtonElement>('[data-act="wf-delete"]');
+      if (delBtn) {
+        delBtn.addEventListener("click", () => {
+          openModalConfirm("删除工作流", "确认删除该工作流？", () => {
+            deleteWorkflow(row.dataset.id!);
+          });
+        });
+      }
+    });
+  }
+
+  // ---------- 新建工作流弹层 ----------
+  const wfAddBtn = document.getElementById("wf-add")!;
+  const wfPopover = document.getElementById("wf-popover")!;
+  // 移到 body 下，避免被 #manage-modal 的 stacking context 限制 + .panel-body 的 overflow 裁剪
+  document.body.appendChild(wfPopover);
+  const wfPopoverName = document.getElementById("wf-popover-name") as HTMLInputElement;
+  const wfPopoverUrls = document.getElementById("wf-popover-urls") as HTMLTextAreaElement;
+  const wfPopoverGrid = document.getElementById("wf-popover-grid")!;
+  const wfCatFilters = document.getElementById("wf-cat-filters")!;
+  let wfActiveCatFilter = "all";
+
+  function renderWfCatFilters(state: Store): void {
+    wfCatFilters.innerHTML = `<button type="button" class="wf-cat-filter ${wfActiveCatFilter === "all" ? "active" : ""}" data-cat="all">全部</button>` +
+      state.categories
+        .sort((a, b) => a.order - b.order)
+        .map((c) =>
+          `<button type="button" class="wf-cat-filter ${wfActiveCatFilter === c.id ? "active" : ""}" data-cat="${c.id}">${escapeHtml(c.name)}</button>`,
+        )
+        .join("");
+
+    wfCatFilters.querySelectorAll<HTMLButtonElement>(".wf-cat-filter").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        wfActiveCatFilter = btn.dataset.cat!;
+        renderWfBookmarks(getState());
+      });
+    });
+  }
+
+  function renderWfBookmarks(state: Store): void {
+    const bms = wfActiveCatFilter === "all"
+      ? state.bookmarks
+      : state.bookmarks.filter((b) => b.categoryId === wfActiveCatFilter);
+
+    wfPopoverGrid.innerHTML = bms
+      .map((b) => {
+        const checked = wfPopoverUrls.value.split("\n").map((l) => l.trim()).some((l) => l === b.href);
+        return `
+        <label class="bm-grid-item ${checked ? "selected" : ""}" data-id="${b.id}">
+          <input type="checkbox" ${checked ? "checked" : ""} />
+          <span class="bm-name" title="${escapeAttr(b.href)}">${escapeHtml(b.title)}</span>
+        </label>
+      `;
+      })
+      .join("");
+
+    wfPopoverGrid.querySelectorAll<HTMLLabelElement>(".bm-grid-item").forEach((label) => {
+      const id = label.dataset.id!;
+      const bm = getState().bookmarks.find((b) => b.id === id);
+      if (!bm) return;
+      const cb = label.querySelector("input")!;
+      const toggle = () => {
+        const url = bm.href;
+        const lines = wfPopoverUrls.value.split("\n").map((l) => l.trim()).filter(Boolean);
+        if (cb.checked) {
+          if (!lines.includes(url)) {
+            wfPopoverUrls.value = [...lines, url].join("\n");
+          }
+        } else {
+          wfPopoverUrls.value = lines.filter((l) => l !== url).join("\n");
+        }
+        label.classList.toggle("selected", cb.checked);
+      };
+      cb.addEventListener("change", toggle);
+    });
+  }
+
+  wfAddBtn.addEventListener("click", () => {
+    wfPopoverName.value = "";
+    wfPopoverUrls.value = "";
+    wfActiveCatFilter = "all";
+    const state = getState();
+    renderWfCatFilters(state);
+    renderWfBookmarks(state);
+    saveFocus();
+    wfPopover.hidden = false;
+    setTimeout(() => wfPopoverName.focus(), 0);
+  });
+
+  wfPopover.querySelectorAll<HTMLElement>("[data-wf-close]").forEach((el) => {
+    el.addEventListener("click", () => { wfPopover.hidden = true; restoreFocus(); });
+  });
+
+  function saveWfPopover(): void {
+    const name = wfPopoverName.value.trim();
+    if (!name) { showToast("请输入工作流名称", "error"); return; }
+    const lines = wfPopoverUrls.value.split("\n").map((l) => l.trim()).filter(Boolean);
+    const checkedIds: string[] = [];
+    const checkedUrls: string[] = [];
+    wfPopoverGrid.querySelectorAll<HTMLLabelElement>(".bm-grid-item").forEach((label) => {
+      const cb = label.querySelector<HTMLInputElement>("input[type=checkbox]");
+      if (cb?.checked) {
+        checkedIds.push(label.dataset.id!);
+        const bm = getState().bookmarks.find((b) => b.id === label.dataset.id);
+        if (bm) checkedUrls.push(bm.href);
+      }
+    });
+    const allUrls = [...new Set([...lines, ...checkedUrls])];
+    if (allUrls.length === 0) { showToast("请至少输入一个链接或选择一个书签", "error"); return; }
+    const result = addWorkflow(name, checkedIds, allUrls);
+    if (!result) { showToast("工作流名称已存在", "error"); return; }
+    wfPopover.hidden = true;
+    showToast(`已创建工作流「${name}」(${allUrls.length} 项)`);
+  }
+
+  document.getElementById("wf-popover-save")!.addEventListener("click", saveWfPopover);
+  wfPopoverName.addEventListener("keydown", (e) => { if (e.key === "Enter") saveWfPopover(); });
+
+  // ---------- 同步 panel ----------
+  let syncEmail = "";
+  let syncing = true;
+  let lastStatus = "idle";
+  let unsubscribeSyncStatus: (() => void) | null = null;
+  let unsubscribeAuth: (() => void) | null = null;
+
+  function renderSyncPanel(): void {
+    const indicator = document.getElementById("sync-indicator-text")!;
+    const lastTime = document.getElementById("sync-last-time")!;
+    const forceBtn = document.getElementById("sync-force-btn")! as HTMLButtonElement;
+    const userInfo = document.getElementById("sync-user-info")!;
+    const userEmail = document.getElementById("sync-user-email")!;
+    const userMeta = document.getElementById("sync-user-meta")!;
+    const authForm = document.getElementById("sync-auth-form")!;
+    const loginBtn = document.getElementById("sync-login-btn")! as HTMLButtonElement;
+    const signupBtn = document.getElementById("sync-signup-btn")! as HTMLButtonElement;
+    const linkBtn = document.getElementById("sync-link-btn")! as HTMLButtonElement;
+    const logoutBtn = document.getElementById("sync-logout-btn")! as HTMLButtonElement;
+    const errorMsg = document.getElementById("sync-error-msg")!;
+    const emailInput = document.getElementById("sync-email") as HTMLInputElement;
+    const pwInput = document.getElementById("sync-password") as HTMLInputElement;
+
+    unsubscribeSyncStatus?.();
+    unsubscribeAuth?.();
+
+    syncEmail = emailInput.value || syncEmail;
+
+    async function refreshUser() {
+      const user = getCurrentUser();
+
+      if (!isConfigured()) {
+        indicator.textContent = "未配置 Supabase（参见 .env）";
+        indicator.style.color = "var(--muted)";
+        forceBtn.hidden = true;
+        userInfo.hidden = true;
+        authForm.innerHTML = `<p class="sync-muted">Supabase 未配置。请设置 <code>PUBLIC_SUPABASE_URL</code> 和 <code>PUBLIC_SUPABASE_ANON_KEY</code> 以启用同步。</p>`;
+        return;
+      }
+
+      if (user) {
+        userInfo.hidden = false;
+        userEmail.textContent = user.is_anonymous
+          ? "匿名用户（设备绑定）"
+          : user.email ?? "已登录";
+        userMeta.textContent = user.is_anonymous
+          ? "可绑定邮箱以跨设备同步数据"
+          : "数据已关联到你的账号，跨设备自动同步";
+        linkBtn.hidden = !user.is_anonymous;
+        logoutBtn.hidden = false;
+        loginBtn.hidden = true;
+        signupBtn.hidden = true;
+        document.getElementById("sync-email")!.closest(".sync-input")?.classList.add("hidden");
+        document.getElementById("sync-password")!.closest(".sync-input")?.classList.add("hidden");
+        errorMsg.hidden = true;
+      } else {
+        userInfo.hidden = true;
+        linkBtn.hidden = true;
+        logoutBtn.hidden = true;
+        loginBtn.hidden = false;
+        signupBtn.hidden = false;
+        document.getElementById("sync-email")!.closest(".sync-input")?.classList.remove("hidden");
+        document.getElementById("sync-password")!.closest(".sync-input")?.classList.remove("hidden");
+      }
+    }
+
+    refreshUser();
+
+    unsubscribeAuth = onAuthChange(() => refreshUser());
+
+    unsubscribeSyncStatus = onSyncStatus((status) => {
+      lastStatus = status;
+      const labels: Record<string, string> = {
+        idle: "就绪",
+        syncing: "同步中...",
+        synced: "已同步",
+        error: "同步失败",
+        offline: "离线",
+      };
+      indicator.textContent = labels[status] ?? status;
+      indicator.style.color = status === "synced"
+        ? "#22c55e"
+        : status === "error" || status === "offline"
+          ? "#ef4444"
+          : "var(--text)";
+      const last = getLastSynced();
+      lastTime.textContent = last ? `上次同步：${new Date(last).toLocaleString()}` : "";
+      forceBtn.hidden = false;
+      syncing = false;
+    });
+
+    forceBtn.onclick = () => {
+      indicator.textContent = "同步中...";
+      doSync();
+    };
+
+    loginBtn.onclick = async () => {
+      const email = emailInput.value.trim();
+      const pw = pwInput.value;
+      if (!email || !pw) { errorMsg.textContent = "请输入邮箱和密码"; errorMsg.hidden = false; return; }
+      errorMsg.hidden = true;
+      loginBtn.disabled = true;
+      try {
+        await signInWithEmail(email, pw);
+        emailInput.value = "";
+        pwInput.value = "";
+      } catch (e: any) {
+        errorMsg.textContent = e?.message ?? "登录失败";
+        errorMsg.hidden = false;
+      }
+      loginBtn.disabled = false;
+    };
+
+    signupBtn.onclick = async () => {
+      const email = emailInput.value.trim();
+      const pw = pwInput.value;
+      if (!email || !pw) { errorMsg.textContent = "请输入邮箱和密码"; errorMsg.hidden = false; return; }
+      if (pw.length < 6) { errorMsg.textContent = "密码至少 6 位"; errorMsg.hidden = false; return; }
+      errorMsg.hidden = true;
+      signupBtn.disabled = true;
+      try {
+        await signUpWithEmail(email, pw);
+        emailInput.value = "";
+        pwInput.value = "";
+        errorMsg.textContent = "注册成功！请检查邮箱确认（如果开启了邮箱验证）";
+        errorMsg.hidden = false;
+        errorMsg.style.color = "#22c55e";
+      } catch (e: any) {
+        errorMsg.textContent = e?.message ?? "注册失败";
+        errorMsg.hidden = false;
+        errorMsg.style.color = "#ef4444";
+      }
+      signupBtn.disabled = false;
+    };
+
+    linkBtn.onclick = async () => {
+      const email = emailInput.value.trim();
+      const pw = pwInput.value;
+      if (!email || !pw) { errorMsg.textContent = "请输入邮箱和密码"; errorMsg.hidden = false; return; }
+      if (pw.length < 6) { errorMsg.textContent = "密码至少 6 位"; errorMsg.hidden = false; return; }
+      errorMsg.hidden = true;
+      linkBtn.disabled = true;
+      try {
+        await linkEmail(email, pw);
+        emailInput.value = "";
+        pwInput.value = "";
+      } catch (e: any) {
+        errorMsg.textContent = e?.message ?? "绑定失败";
+        errorMsg.hidden = false;
+        errorMsg.style.color = "#ef4444";
+      }
+      linkBtn.disabled = false;
+    };
+
+    logoutBtn.onclick = async () => {
+      await signOut();
+      forceBtn.hidden = true;
+    };
+
+    document.getElementById("sync-email")!.onkeydown = (e) => {
+      if (e.key === "Enter") document.getElementById("sync-password")!.focus();
+    };
+    document.getElementById("sync-password")!.onkeydown = (e) => {
+      if (e.key === "Enter") (document.getElementById("sync-login-btn") as HTMLButtonElement)?.click();
+    };
+  }
+
+  window.addEventListener("manage:close", () => {
+    unsubscribeSyncStatus?.();
+    unsubscribeAuth?.();
+  });
+
+  // ---------- 订阅 store ----------
+  subscribe((state) => {
+    if (!modal.hidden) {
+      if (activeSub === "theme") renderTheme(state);
+      if (activeSub === "bookmarks") {
+        renderBmGrid(state);
+        updateSelectionInfo();
+        renderSortMenu(state);
+      }
+      if (activeSub === "categories") {
+        renderCatList(state);
+      }
+      if (activeSub === "workflows") renderWorkflows(state);
+      if (activeSub === "search") renderSearch(state);
+    }
+    const prevMode = document.documentElement.dataset.mode;
+    const prevStyle = document.documentElement.dataset.style;
+    if (state.themeMode !== prevMode || state.themeStyle !== prevStyle) {
+      applyTheme(state.themeMode, state.themeStyle);
+    }
+  });
+
+  // 初始渲染主题卡片
+  renderTheme(getState());
+
+
+</script>
