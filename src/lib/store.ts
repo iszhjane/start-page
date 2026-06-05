@@ -208,15 +208,9 @@ export function initRemoteSync(): void {
   setTimeout(async () => {
     try {
       const { initAuth } = await import("./auth");
-      const { fetchRemoteStore, initSync } = await import("./sync");
+      const { initSync } = await import("./sync");
       const user = await initAuth();
-      if (!user) return;
-      const { store, hasRemoteData } = await fetchRemoteStore();
-      if (hasRemoteData && store) {
-        replaceStore(store);
-      } else {
-        initSync();
-      }
+      if (user) initSync();
     } catch (e) {
       console.warn("store: remote init failed, using local", e);
     }

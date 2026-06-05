@@ -203,7 +203,11 @@ async function pullData(): Promise<{
   }
 }
 
-// ---------- 执行同步（双向：先拉后推）----------
+const SYNC_DONE_KEY = "startpage:sync:done";
+
+// ---------- 执行同步 ----------
+// 首次同步先 pull 远端数据覆盖本地，再 push 本地；
+// 后续同步仅 push（本地优先）。
 export async function doSync(): Promise<void> {
   if (!navigator.onLine) {
     setSyncStatus("offline");
@@ -214,11 +218,19 @@ export async function doSync(): Promise<void> {
     return;
   }
   setSyncStatus("syncing");
-  const { store, hasRemoteData } = await pullData();
-  if (hasRemoteData && store) {
-    replaceStore(store);
+
+  const isFirstSync = !localStorage.getItem(SYNC_DONE_KEY);
+
+  if (isFirstSync) {
+    const { store, hasRemoteData } = await pullData();
+    if (hasRemoteData && store) {
+      replaceStore(store);
+    }
+    localStorage.setItem(SYNC_DONE_KEY, "1");
   }
+
   const ok = await pushData();
+  localStorage.setItem("startpage:sync:last", String(Date.now()));
   setSyncStatus(ok ? "synced" : "error");
 }
 
@@ -227,39 +239,14 @@ export function enqueueSync(): void {
   syncTimer = setTimeout(() => doSync(), 800);
 }
 
-// ---------- 启动同步（拉取）----------
+// ---------- 首次启动同步 ----------
 export async function initSync(): Promise<boolean> {
   if (!assertCanSync()) return false;
   if (!navigator.onLine) {
     setSyncStatus("offline");
     return false;
   }
-
-  setSyncStatus("syncing");
-  const { store, hasRemoteData } = await pullData();
-
-  if (hasRemoteData && store) {
-    localStorage.setItem("startpage:sync:last", String(Date.now()));
-    setSyncStatus("synced");
-    return true;
-  }
-
-  if (!hasRemoteData) {
-    const ok = await pushData();
-    setSyncStatus(ok ? "synced" : "error");
-    return ok;
-  }
-
-  setSyncStatus("error");
-  return false;
-}
-
-// ---------- 拉取并返回数据供 store 使用 ----------
-export async function fetchRemoteStore(): Promise<{
-  store: Partial<Store> | null;
-  hasRemoteData: boolean;
-}> {
-  return pullData();
+  return doSync().then(() => true).catch(() => false);
 }
 
 // ---------- 在线/离线监听 ----------

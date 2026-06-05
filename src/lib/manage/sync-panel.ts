@@ -1,6 +1,6 @@
 import { getState, initRemoteSync } from "../../lib/store";
 import { escapeHtml } from "../../lib/helpers";
-import { getCurrentUser, onAuthChange, signInWithEmail, signUpWithEmail, signOut, resetPassword, resendVerification, isEmailVerified } from "../../lib/auth";
+import { getCurrentUser, onAuthChange, signInWithEmail, signUpWithEmail, signOut, resetPassword } from "../../lib/auth";
 import { isConfigured } from "../../lib/supabase";
 import { onSyncStatus, getLastSynced, doSync } from "../../lib/sync";
 import { showToast, saveFocus, restoreFocus } from "./shared";
@@ -38,9 +38,6 @@ export function initSyncPanel(): void {
   const resetSendBtn = document.getElementById("sync-reset-send-btn")! as HTMLButtonElement;
   const resetError = document.getElementById("sync-reset-error")!;
   const resetSuccess = document.getElementById("sync-reset-success")!;
-  const verifyModal = document.getElementById("sync-verify-modal")!;
-  const verifyEmail = document.getElementById("sync-verify-email")!;
-  const resendVerifyBtn = document.getElementById("sync-resend-verify-btn")! as HTMLButtonElement;
   let activeAuthTab: "login" | "signup" = "login";
   let syncAutoEnabled = true;
 
@@ -79,12 +76,10 @@ export function initSyncPanel(): void {
 
     initRemoteSync();
     authActions.hidden = false;
-    const verified = isEmailVerified();
     const email = user.email ?? "—";
     accountInfo.innerHTML = `
       <div class="sync-account-signed-in">
         <span class="sync-account-email">${escapeHtml(email)}</span>
-        <span class="sync-account-meta">${verified ? "✓ 邮箱已验证" : "⚠ 邮箱未验证"}</span>
       </div>
     `;
     indicator.textContent = "已连接";
@@ -152,19 +147,17 @@ export function initSyncPanel(): void {
     const email = modalSignupEmail.value.trim();
     const pw = modalSignupPw.value;
     if (!email || !pw) { modalSignupError.textContent = "请输入邮箱和密码"; modalSignupError.hidden = false; return; }
-    if (pw.length < 6) { modalSignupError.textContent = "密码至少 6 位"; modalSignupError.hidden = false; return; }
+    if (!/^(?=.*[a-zA-Z])(?=.*\d).{6,}$/.test(pw)) {
+      modalSignupError.textContent = "密码需包含字母和数字，且不低于 6 位";
+      modalSignupError.hidden = false;
+      return;
+    }
     modalSignupError.hidden = true;
     modalSignupBtn.disabled = true;
     try {
       await signUpWithEmail(email, pw);
-      showToast(`已注册：${email}（如开启邮箱验证请前往邮箱确认）`, "info");
+      showToast(`已注册：${email}，请登录`, "info");
       closeAuthModal();
-      const user = getCurrentUser();
-      if (user && !isEmailVerified()) {
-        verifyEmail.textContent = email;
-        verifyModal.hidden = false;
-        saveFocus();
-      }
       await refreshUser();
       doSync().catch(() => {});
     } catch (e: any) {
@@ -205,21 +198,6 @@ export function initSyncPanel(): void {
       resetError.hidden = false;
     }
     resetSendBtn.disabled = false;
-  };
-
-  verifyModal.querySelectorAll<HTMLElement>("[data-sync-verify-close]").forEach((el) => {
-    el.addEventListener("click", () => { verifyModal.hidden = true; restoreFocus(); });
-  });
-
-  resendVerifyBtn.onclick = async () => {
-    resendVerifyBtn.disabled = true;
-    try {
-      await resendVerification();
-      showToast("验证邮件已重发", "info");
-    } catch (e: any) {
-      showToast(`重发失败：${e?.message ?? ""}`, "error");
-    }
-    resendVerifyBtn.disabled = false;
   };
 
   modalLoginEmail.onkeydown = (e) => { if (e.key === "Enter") modalLoginPw.focus(); };

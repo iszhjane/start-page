@@ -99,13 +99,4 @@ export async function resetPassword(email: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function resendVerification(): Promise<void> {
-  const supabase = getClient();
-  if (!supabase) return;
-  const { error } = await supabase.auth.resend({ type: "signup", email: currentUser?.email ?? "" });
-  if (error) throw error;
-}
 
-export function isEmailVerified(): boolean {
-  return currentUser?.email_confirmed_at !== null;
-}
