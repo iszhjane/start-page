@@ -101,6 +101,13 @@
     filter: none !important;
   }
 
+  .bookmark-list li.bookmark-placeholder {
+    pointer-events: none;
+  }
+  .bookmark-list li.bookmark-placeholder a {
+    visibility: hidden;
+  }
+
   .empty-hint {
     color: var(--muted);
     text-align: center;
@@ -209,13 +216,19 @@
 
     const pagesHtml = pages
       .map(
-        (items) => `
+        (items) => {
+          const padded: (Bookmark | null)[] = [...items];
+          while (padded.length < PAGE_SIZE) {
+            padded.push(null);
+          }
+          return `
         <div class="bookmark-page">
           <div class="bookmark-list" data-squircle data-squircle-radius="16">
-            <ul>${items.map((b) => renderItem(b)).join("")}</ul>
+            <ul>${padded.map((b) => b ? renderItem(b) : renderPlaceholder()).join("")}</ul>
           </div>
         </div>
-      `,
+      `;
+        },
       )
       .join("");
 
@@ -254,10 +267,15 @@
     `;
   }
 
+  function renderPlaceholder(): string {
+    return '<li class="bookmark-placeholder" aria-hidden="true"><a tabindex="-1">&nbsp;</a></li>';
+  }
+
   function applyHighlight(active: string): void {
     document
       .querySelectorAll<HTMLLIElement>(".bookmark-list li")
       .forEach((li) => {
+        if (li.classList.contains("bookmark-placeholder")) return;
         const isMatch = active === "all" || li.dataset.category === active;
         li.classList.toggle("bookmark-match", isMatch && active !== "all");
         li.classList.toggle("bookmark-nomatch", !isMatch);
