@@ -69,3 +69,6 @@ npm run build      # 构建到 dist/
 ## 🙏 致谢
 
 - [ahmetdem/start-page](https://github.com/ahmetdem/start-page) — 上游原项目
+- **Inter** (Rasmus Andersson) & **Source Code Pro** (Paul D. Hunt) — 默认主题字体
+- [Z 工坊像素黑体](https://github.com/SolidZORO/zpix-pixel-font) — 像素主题字体
+- [opencode](https://opencode.ai) — AI 编程助手
