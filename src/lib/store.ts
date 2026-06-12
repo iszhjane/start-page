@@ -18,6 +18,7 @@ export type Workflow = {
   name: string;
   bookmarkIds: string[];
   urls: string[];
+  updatedAt: number;
 };
 
 export type SearchEngineId = "google" | "bing" | "duckduckgo" | "brave" | "custom";
@@ -34,6 +35,7 @@ export type Category = {
   name: string;
   order: number;
   builtin?: boolean;
+  updatedAt: number;
 };
 
 export type Bookmark = {
@@ -42,10 +44,11 @@ export type Bookmark = {
   title: string;
   categoryId: string;
   createdAt: number;
+  updatedAt: number;
 };
 
 export type Store = {
-  version: 6;
+  version: 7;
   categories: Category[];
   bookmarks: Bookmark[];
   workflows: Workflow[];
@@ -54,6 +57,7 @@ export type Store = {
   bookmarkSort: BookmarkSort;
   searchEngine: SearchEngineId;
   customSearchEngine?: { name: string; url: string };
+  settingsUpdatedAt: number;
 };
 
 export function getSearchUrl(engine: SearchEngineId, query: string, custom?: Store["customSearchEngine"]): string {
@@ -65,18 +69,18 @@ export function getSearchUrl(engine: SearchEngineId, query: string, custom?: Sto
   return `${base}${q}`;
 }
 
-export const STORAGE_KEY = "startpage:store:v6";
+export const STORAGE_KEY = "startpage:store:v7";
 
 // ---------- 默认数据：4 个预填分类 + 20 条原始书签 ----------
 // 与 src/content/bookmarks.md 保持一致，迁移后通过 store 接管
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: "cat-ai", name: "AI", order: 0, builtin: true },
-  { id: "cat-social", name: "社交", order: 1, builtin: true },
-  { id: "cat-productivity", name: "效率", order: 2, builtin: true },
-  { id: "cat-media", name: "阅读娱乐", order: 3, builtin: true },
+  { id: "cat-ai", name: "AI", order: 0, builtin: true, updatedAt: 0 },
+  { id: "cat-social", name: "社交", order: 1, builtin: true, updatedAt: 0 },
+  { id: "cat-productivity", name: "效率", order: 2, builtin: true, updatedAt: 0 },
+  { id: "cat-media", name: "阅读娱乐", order: 3, builtin: true, updatedAt: 0 },
 ];
 
-const DEFAULT_BOOKMARKS: Omit<Bookmark, "id" | "createdAt" | "categoryId">[] = [
+const DEFAULT_BOOKMARKS: Omit<Bookmark, "id" | "createdAt" | "categoryId" | "updatedAt">[] = [
   { href: "https://claude.ai/", title: "Claude" },
   { href: "https://chatgpt.com/", title: "ChatGpt" },
   { href: "https://discord.com/app", title: "Discord" },
@@ -115,10 +119,11 @@ function buildDefaultStore(): Store {
     id: `bm-default-${idx}`,
     categoryId: BOOKMARK_CATEGORY_INDEX[idx] ?? "cat-productivity",
     createdAt: now,
+    updatedAt: now,
   }));
   return {
-    version: 6,
-    categories: [...DEFAULT_CATEGORIES],
+    version: 7,
+    categories: DEFAULT_CATEGORIES.map((c) => ({ ...c, updatedAt: now })),
     bookmarks,
     workflows: [],
     themeMode: (document.documentElement.dataset.mode as "light" | "dark") || "light",
@@ -126,6 +131,7 @@ function buildDefaultStore(): Store {
     bookmarkSort: "alpha",
     searchEngine: "google",
     customSearchEngine: undefined,
+    settingsUpdatedAt: now,
   };
 }
 
@@ -139,28 +145,28 @@ function load(): Store {
       return init;
     }
     const parsed = JSON.parse(raw) as Store;
-    if (parsed.version !== 6) {
-      const oldTheme = (parsed as unknown as { theme?: "light" | "dark" }).theme;
-      const oldStyle = (parsed as { themeStyle?: string }).themeStyle;
-      let style: ThemeStyle = "default";
-      if (oldStyle === "pixel") {
-        style = oldStyle as ThemeStyle;
-      }
-      const init: Store = {
-        version: 6,
-        categories: parsed.categories || [],
-        bookmarks: parsed.bookmarks || [],
-        workflows: (parsed as { workflows?: Workflow[] }).workflows ?? [],
-        themeMode: oldTheme ?? parsed.themeMode ?? "light",
-        themeStyle: style || parsed.themeStyle || "default",
-        bookmarkSort: (parsed as { bookmarkSort?: BookmarkSort }).bookmarkSort ?? "alpha",
-        searchEngine: (parsed as { searchEngine?: SearchEngineId }).searchEngine ?? "google",
-        customSearchEngine: (parsed as { customSearchEngine?: { name: string; url: string } }).customSearchEngine ?? undefined,
-      };
-      save(init);
-      return init;
+    if (parsed.version === 7) return parsed;
+    const now = Date.now();
+    const oldTheme = (parsed as unknown as { theme?: "light" | "dark" }).theme;
+    const oldStyle = (parsed as { themeStyle?: string }).themeStyle;
+    let style: ThemeStyle = "default";
+    if (oldStyle === "pixel") {
+      style = oldStyle as ThemeStyle;
     }
-    return parsed;
+    const init: Store = {
+      version: 7,
+      categories: (parsed.categories || []).map((c: any) => ({ ...c, updatedAt: now })),
+      bookmarks: (parsed.bookmarks || []).map((b: any) => ({ ...b, updatedAt: b.createdAt ?? now })),
+      workflows: ((parsed as unknown as { workflows?: Workflow[] }).workflows ?? []).map((w: any) => ({ ...w, updatedAt: now })),
+      themeMode: oldTheme ?? parsed.themeMode ?? "light",
+      themeStyle: style || parsed.themeStyle || "default",
+      bookmarkSort: (parsed as unknown as { bookmarkSort?: BookmarkSort }).bookmarkSort ?? "alpha",
+      searchEngine: (parsed as unknown as { searchEngine?: SearchEngineId }).searchEngine ?? "google",
+      customSearchEngine: (parsed as unknown as { customSearchEngine?: { name: string; url: string } }).customSearchEngine ?? undefined,
+      settingsUpdatedAt: now,
+    };
+    save(init);
+    return init;
   } catch (e) {
     console.warn("store: load failed, fallback to defaults", e);
     try { window.dispatchEvent(new CustomEvent("toast", { detail: { msg: "本地数据已损坏，已重置为默认值", kind: "error" } })); } catch {}
@@ -220,13 +226,14 @@ export function initRemoteSync(): void {
 export function getState(): Store {
   if (typeof window === "undefined") {
     return {
-      version: 6,
-      categories: [...DEFAULT_CATEGORIES],
+      version: 7,
+      categories: DEFAULT_CATEGORIES.map((c) => ({ ...c, updatedAt: 0 })),
       bookmarks: DEFAULT_BOOKMARKS.map((b, idx) => ({
         ...b,
         id: `bm-default-${idx}`,
         categoryId: BOOKMARK_CATEGORY_INDEX[idx] ?? "cat-productivity",
         createdAt: 0,
+        updatedAt: 0,
       })),
       themeMode: "light",
       themeStyle: "default",
@@ -234,6 +241,7 @@ export function getState(): Store {
       searchEngine: "google",
       customSearchEngine: undefined,
       workflows: [],
+      settingsUpdatedAt: 0,
     };
   }
   if (!state) {
@@ -288,6 +296,7 @@ export function addBookmark(input: { href: string; title?: string; categoryId: s
     title,
     categoryId: input.categoryId,
     createdAt: Date.now(),
+    updatedAt: Date.now(),
   };
   const next = { ...getState(), bookmarks: [...getState().bookmarks, bm] };
   commit(next);
@@ -297,7 +306,7 @@ export function addBookmark(input: { href: string; title?: string; categoryId: s
 export function updateBookmark(id: string, patch: Partial<Pick<Bookmark, "href" | "title" | "categoryId">>): void {
   const list = getState().bookmarks.map((bm) => {
     if (bm.id !== id) return bm;
-    const next = { ...bm, ...patch };
+    const next = { ...bm, ...patch, updatedAt: Date.now() };
     if (patch.href) next.href = normalizeUrl(patch.href);
     if (patch.title !== undefined) {
       const trimmed = patch.title.trim();
@@ -323,28 +332,28 @@ export function deleteBookmarks(ids: string[]): void {
 export function updateBookmarksCategory(ids: string[], categoryId: string): void {
   if (ids.length === 0) return;
   const set = new Set(ids);
-  const list = getState().bookmarks.map((bm) => (set.has(bm.id) ? { ...bm, categoryId } : bm));
+  const list = getState().bookmarks.map((bm) => (set.has(bm.id) ? { ...bm, categoryId, updatedAt: Date.now() } : bm));
   commit({ ...getState(), bookmarks: list });
 }
 
 export function setThemeMode(mode: ThemeMode): void {
-  commit({ ...getState(), themeMode: mode });
+  commit({ ...getState(), themeMode: mode, settingsUpdatedAt: Date.now() });
 }
 
 export function setThemeStyle(style: ThemeStyle): void {
-  commit({ ...getState(), themeStyle: style });
+  commit({ ...getState(), themeStyle: style, settingsUpdatedAt: Date.now() });
 }
 
 export function setBookmarkSort(sort: BookmarkSort): void {
-  commit({ ...getState(), bookmarkSort: sort });
+  commit({ ...getState(), bookmarkSort: sort, settingsUpdatedAt: Date.now() });
 }
 
 export function setSearchEngine(engine: SearchEngineId): void {
-  commit({ ...getState(), searchEngine: engine });
+  commit({ ...getState(), searchEngine: engine, settingsUpdatedAt: Date.now() });
 }
 
 export function setCustomSearchEngine(name: string, url: string): void {
-  commit({ ...getState(), customSearchEngine: { name, url }, searchEngine: "custom" });
+  commit({ ...getState(), customSearchEngine: { name, url }, searchEngine: "custom", settingsUpdatedAt: Date.now() });
 }
 
 // ---------- Workflow CRUD ----------
@@ -353,7 +362,7 @@ export function addWorkflow(name: string, bookmarkIds: string[], urls?: string[]
   if (!trimmed) return null;
   const existing = getState().workflows.find((w) => w.name.toLowerCase() === trimmed.toLowerCase());
   if (existing) return null;
-  const wf: Workflow = { id: uid(), name: trimmed, bookmarkIds, urls: urls ?? [] };
+  const wf: Workflow = { id: uid(), name: trimmed, bookmarkIds, urls: urls ?? [], updatedAt: Date.now() };
   commit({ ...getState(), workflows: [...getState().workflows, wf] });
   return wf;
 }
@@ -368,7 +377,7 @@ export function renameWorkflow(id: string, name: string): boolean {
   if (!trimmed) return false;
   const existing = getState().workflows.find((w) => w.name.toLowerCase() === trimmed.toLowerCase() && w.id !== id);
   if (existing) return false;
-  const list = getState().workflows.map((w) => (w.id === id ? { ...w, name: trimmed } : w));
+  const list = getState().workflows.map((w) => (w.id === id ? { ...w, name: trimmed, updatedAt: Date.now() } : w));
   commit({ ...getState(), workflows: list });
   return true;
 }
@@ -380,7 +389,7 @@ export function updateWorkflow(id: string, patch: Partial<Pick<Workflow, "name" 
   if (existing) return false;
   const list = getState().workflows.map((w) => {
     if (w.id !== id) return w;
-    const next = { ...w };
+    const next = { ...w, updatedAt: Date.now() };
     if (patch.name) next.name = trimmed!;
     if (patch.bookmarkIds) next.bookmarkIds = patch.bookmarkIds;
     if (patch.urls) next.urls = patch.urls;
@@ -394,7 +403,7 @@ export function updateWorkflow(id: string, patch: Partial<Pick<Workflow, "name" 
 export function addCategory(name: string): Category {
   const trimmed = name.trim() || "未命名";
   const order = getState().categories.length;
-  const cat: Category = { id: uid(), name: trimmed, order };
+  const cat: Category = { id: uid(), name: trimmed, order, updatedAt: Date.now() };
   commit({ ...getState(), categories: [...getState().categories, cat] });
   return cat;
 }
@@ -402,7 +411,7 @@ export function addCategory(name: string): Category {
 export function renameCategory(id: string, name: string): void {
   const trimmed = name.trim();
   if (!trimmed) return;
-  const list = getState().categories.map((c) => (c.id === id ? { ...c, name: trimmed } : c));
+  const list = getState().categories.map((c) => (c.id === id ? { ...c, name: trimmed, updatedAt: Date.now() } : c));
   commit({ ...getState(), categories: list });
 }
 
@@ -415,7 +424,7 @@ export function renameCategory(id: string, name: string): void {
 export function deleteCategory(id: string): void {
   const list = getState().categories.filter((c) => c.id !== id);
   const bookmarks = getState().bookmarks.map((bm) =>
-    bm.categoryId === id ? { ...bm, categoryId: "" } : bm,
+    bm.categoryId === id ? { ...bm, categoryId: "", updatedAt: Date.now() } : bm,
   );
   commit({ ...getState(), categories: list, bookmarks });
 }
@@ -428,7 +437,7 @@ export function reorderCategory(fromIndex: number, toIndex: number): void {
   const cats = [...getState().categories].sort((a, b) => a.order - b.order);
   const [moved] = cats.splice(fromIndex, 1);
   cats.splice(toIndex, 0, moved);
-  const updated = cats.map((c, i) => ({ ...c, order: i }));
+  const updated = cats.map((c, i) => ({ ...c, order: i, updatedAt: Date.now() }));
   commit({ ...getState(), categories: updated });
 }
 
@@ -472,6 +481,7 @@ export function addBookmarksBatch(items: ParsedLine[], defaultCategoryId: string
       title: item.title?.trim() || extractHostname(href),
       categoryId: catId,
       createdAt: now + idx,
+      updatedAt: now + idx,
     };
   });
   commit({ ...getState(), bookmarks: [...getState().bookmarks, ...created] });
@@ -486,20 +496,21 @@ export function exportJSON(): string {
 export function importJSON(text: string, mode: "merge" | "replace" = "replace"): { ok: boolean; message: string } {
   try {
     const parsed = JSON.parse(text) as Partial<Store>;
-    if (parsed.version !== 6 || !Array.isArray(parsed.categories) || !Array.isArray(parsed.bookmarks)) {
-      return { ok: false, message: "JSON 格式不匹配（需要 version: 6）" };
+    if (parsed.version !== 7 || !Array.isArray(parsed.categories) || !Array.isArray(parsed.bookmarks)) {
+      return { ok: false, message: "JSON 格式不匹配（需要 version: 7）" };
     }
     if (mode === "replace") {
       commit({
-        version: 6,
-        categories: parsed.categories as Category[],
-        bookmarks: parsed.bookmarks as Bookmark[],
+        version: 7,
+        categories: (parsed.categories as Category[]).map((c: any) => ({ ...c, updatedAt: c.updatedAt ?? Date.now() })),
+        bookmarks: (parsed.bookmarks as Bookmark[]).map((b: any) => ({ ...b, updatedAt: b.updatedAt ?? b.createdAt ?? Date.now() })),
         themeMode: parsed.themeMode || "light",
         themeStyle: parsed.themeStyle || "default",
         bookmarkSort: parsed.bookmarkSort || "alpha",
         searchEngine: parsed.searchEngine || "google",
         customSearchEngine: parsed.customSearchEngine ?? undefined,
-        workflows: parsed.workflows ?? [],
+        workflows: (parsed.workflows ?? []).map((w: any) => ({ ...w, updatedAt: w.updatedAt ?? Date.now() })),
+        settingsUpdatedAt: Date.now(),
       });
     } else {
       const existingBmIds = new Set(getState().bookmarks.map((b) => b.id));
@@ -616,7 +627,7 @@ export function importFromHtml(
       let catOrder = getState().categories.length;
       for (const e of entries) {
         if (e.categoryName !== UNCATEGORIZED && e.categoryName && !seenCats.has(e.categoryName)) {
-          newCats.push({ id: uid(), name: e.categoryName, order: catOrder++ });
+          newCats.push({ id: uid(), name: e.categoryName, order: catOrder++, updatedAt: Date.now() });
           seenCats.add(e.categoryName);
         }
       }

@@ -59,7 +59,7 @@ async function pushData(): Promise<boolean> {
       title: b.title,
       category_id: b.categoryId,
       created_at: b.createdAt,
-      updated_at: now,
+      updated_at: new Date(b.updatedAt ?? Date.now()).toISOString(),
     }));
     if (bmRows.length > 0) {
       const { error } = await supabase.from("bookmarks").upsert(bmRows, {
@@ -76,7 +76,7 @@ async function pushData(): Promise<boolean> {
       order: c.order,
       builtin: c.builtin ?? false,
       created_at: Date.now(),
-      updated_at: now,
+      updated_at: new Date(c.updatedAt ?? Date.now()).toISOString(),
     }));
     if (catRows.length > 0) {
       const { error } = await supabase.from("categories").upsert(catRows, {
@@ -93,7 +93,7 @@ async function pushData(): Promise<boolean> {
       bookmark_ids: w.bookmarkIds,
       urls: w.urls,
       created_at: Date.now(),
-      updated_at: now,
+      updated_at: new Date(w.updatedAt ?? Date.now()).toISOString(),
     }));
     if (wfRows.length > 0) {
       const { error } = await supabase.from("workflows").upsert(wfRows, {
@@ -114,7 +114,7 @@ async function pushData(): Promise<boolean> {
           search_engine: state.searchEngine,
           custom_search_name: state.customSearchEngine?.name ?? null,
           custom_search_url: state.customSearchEngine?.url ?? null,
-          updated_at: now,
+          updated_at: new Date(state.settingsUpdatedAt ?? Date.now()).toISOString(),
         },
         { onConflict: "user_id", ignoreDuplicates: false },
       );
